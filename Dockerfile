@@ -22,33 +22,37 @@ WORKDIR /app
 # ── Python dependencies ───────────────────────────────────────────────────────
 COPY requirements.txt .
 
-# Install all packages except pymssql first (guaranteed to succeed)
+# Install everything except pymssql first (always succeeds)
 RUN pip install --no-cache-dir $(grep -v pymssql requirements.txt | grep -v '^#' | grep -v '^$' | tr '\n' ' ')
 
-# Install pymssql separately — if it fails the rest of the app still works;
-# only SQL Server connections will be unavailable.
+# pymssql separately — failure here won't break the rest of the app
 RUN pip install --no-cache-dir pymssql==2.3.1 || \
     echo "WARNING: pymssql install failed — MS SQL Server connections unavailable"
 
 # ── Application files ─────────────────────────────────────────────────────────
 COPY . .
 
-# Put index.html where the server expects it (static/index.html)
+# ── Frontend: put index.html where server.py expects it ───────────────────────
+# server.py looks for static/index.html first, then falls back to root index.html
+# This step copies root index.html → static/index.html so both locations work.
 RUN mkdir -p static && \
-    if [ -f index.html ] && [ ! -f static/index.html ]; then \
-        cp index.html static/index.html; \
+    if [ -f index.html ]; then \
+        cp index.html static/index.html && \
+        echo "✅ Copied index.html → static/index.html"; \
+    elif [ -f static/index.html ]; then \
+        echo "✅ static/index.html already in place"; \
+    else \
+        echo "❌ WARNING: No index.html found anywhere — UI will return 404"; \
     fi
 
-# Ensure database directories exist
+# ── Database directories ──────────────────────────────────────────────────────
 RUN mkdir -p databases databases/uploads
 
 # ── Environment ───────────────────────────────────────────────────────────────
-# Do NOT hardcode PORT here — Railway injects it at runtime.
-# The app reads: int(os.environ.get("PORT", 8000))
+# Do NOT set PORT here — Railway injects it at runtime automatically
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# EXPOSE is documentation only on Railway; the actual port comes from $PORT
 EXPOSE 8000
 
 # ── Health check ─────────────────────────────────────────────────────────────

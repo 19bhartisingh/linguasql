@@ -632,6 +632,8 @@ app.router.lifespan_context = lifespan
 
 STATIC_DIR    = Path(__file__).parent / "static"
 FRONTEND_PATH = STATIC_DIR / "index.html"
+# Fallback: index.html in project root (common when static/ dir wasn't created)
+ROOT_INDEX    = Path(__file__).parent / "index.html"
 
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -639,9 +641,19 @@ if STATIC_DIR.exists():
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend():
-    if not FRONTEND_PATH.exists():
-        return HTMLResponse("<h1>Frontend not found</h1>", status_code=404)
-    return HTMLResponse(content=FRONTEND_PATH.read_text(encoding="utf-8"))
+    # 1. Preferred location: static/index.html
+    if FRONTEND_PATH.exists():
+        return HTMLResponse(content=FRONTEND_PATH.read_text(encoding="utf-8"))
+    # 2. Fallback: index.html in project root
+    if ROOT_INDEX.exists():
+        return HTMLResponse(content=ROOT_INDEX.read_text(encoding="utf-8"))
+    # 3. Nothing found — return a helpful error instead of crashing
+    return HTMLResponse(
+        "<h1>LinguaSQL</h1><p>Frontend not found. "
+        "Expected <code>static/index.html</code> or <code>index.html</code> "
+        "in the project root.</p>",
+        status_code=404
+    )
 
 
 # ─────────────────────────────────────────────────────────
