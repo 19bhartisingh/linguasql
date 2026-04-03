@@ -1,0 +1,61 @@
+# ══════════════════════════════════════════════
+#  QueryMind — Python Dependencies
+#  Install with: pip install -r requirements.txt
+# ══════════════════════════════════════════════
+
+# ── Web Framework ──────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9       # Required for file uploads
+pydantic>=2.0.0
+
+# ── Data Processing ────────────────────────────
+pandas>=2.0.0
+numpy>=1.24.0
+
+# ── File Format Support ────────────────────────
+openpyxl>=3.1.0               # .xlsx files
+xlrd>=2.0.1                   # .xls files (legacy Excel)
+lxml>=4.9.0                   # .html table parsing
+pyarrow>=14.0.0               # .parquet files
+
+# ── HTTP Client ────────────────────────────────
+requests>=2.31.0              # For Ollama API calls
+
+# ── Environment Variables ──────────────────────
+python-dotenv>=1.0.0          # Load API keys from .env file
+
+# ── AI Providers (Cloud) ───────────────────────
+google-generativeai>=0.7.0    # Google Gemini (FREE tier)
+openai>=1.30.0                # OpenAI GPT
+groq>=0.9.0                   # Groq LLaMA (FREE tier)
+
+# ── AI Providers (Local — Optional) ───────────
+# Uncomment these only if you want HuggingFace local model:
+# transformers>=4.40.0
+# torch>=2.0.0
+# sentencepiece>=0.1.99
+
+# ── Optional High-Performance Query Engine ─────
+# DuckDB: dramatically faster on large CSV/Parquet (millions of rows),
+# supports Parquet natively, and handles analytical queries SQLite struggles with.
+# Install: pip install duckdb
+# duckdb>=0.10.0
+
+# ── External Database Drivers (Optional) ───────
+# Install the ones you need for external DB connections:
+#
+# MS SQL Server — RECOMMENDED (no ODBC driver needed):
+pymssql>=2.2.0                # pip install pymssql
+#
+# MS SQL Server — alternative (requires ODBC Driver 17/18 installed):
+# pyodbc>=4.0.0
+#
+# PostgreSQL:
+# psycopg2-binary>=2.9.0
+#
+# MySQL / MariaDB:
+# pymysql>=1.1.0
+#
+# For all databases at once:
+# pip install pymssql pyodbc psycopg2-binary pymysql
