@@ -344,6 +344,26 @@ def _get_shared_result(share_id: str) -> Optional[Dict]:
 
 
 # ─────────────────────────────────────────────────────────
+#  HELPERS
+# ─────────────────────────────────────────────────────────
+
+def _make_serialisable(rows: list) -> list:
+    """Convert numpy types to plain Python types for JSON serialisation."""
+    import numpy as np
+    clean = []
+    for row in rows:
+        clean_row = {}
+        for k, v in row.items():
+            if isinstance(v, np.integer):    v = int(v)
+            elif isinstance(v, np.floating): v = None if np.isnan(v) else float(v)
+            elif isinstance(v, np.bool_):    v = bool(v)
+            elif isinstance(v, float) and v != v: v = None
+            clean_row[k] = v
+        clean.append(clean_row)
+    return clean
+
+
+# ─────────────────────────────────────────────────────────
 #  LRU QUERY CACHE
 # ─────────────────────────────────────────────────────────
 
@@ -828,12 +848,6 @@ async def health_check():
         "db":        "ok" if db_ok else "unreachable",
         "databases": len(DATABASE_REGISTRY),
     }
-
-
-@app.get("/health")
-async def health_check():
-    """Health check for Railway/Fly.io/Render"""
-    return {"status": "ok", "app": "LinguaSQL", "version": "1.0"}
 
 
 @app.get("/api/databases")
@@ -1958,7 +1972,7 @@ async def schema_detective(req: SchemaDetectiveRequest):
     return {"db_name": req.db_name, **result}
 
 
-
+class ExportQueryPdfRequest(BaseModel):
     title:     str
     subtitle:  str          = ""
     question:  str          = ""
@@ -2297,6 +2311,14 @@ async def send_report_now(req: SendNowRequest):
 
 
 
+class ShareRequest(BaseModel):
+    question: str
+    sql:      str
+    columns:  List[str]
+    rows:     List[Dict]
+    db_name:  str
+
+
 @app.post("/api/share")
 async def create_share_link(req: ShareRequest):
     share_id = _save_shared_result(req.question, req.sql, req.columns, req.rows, req.db_name)
@@ -2380,22 +2402,8 @@ async def generate_dashboard(req: DashboardRequest):
 
 
 # ─────────────────────────────────────────────────────────
-#  HELPERS
+#  HELPERS  (function defined earlier in file)
 # ─────────────────────────────────────────────────────────
-
-def _make_serialisable(rows: list) -> list:
-    import numpy as np
-    clean = []
-    for row in rows:
-        clean_row = {}
-        for k, v in row.items():
-            if isinstance(v, np.integer):   v = int(v)
-            elif isinstance(v, np.floating): v = None if np.isnan(v) else float(v)
-            elif isinstance(v, np.bool_):    v = bool(v)
-            elif isinstance(v, float) and v != v: v = None
-            clean_row[k] = v
-        clean.append(clean_row)
-    return clean
 
 
 # ─────────────────────────────────────────────────────────
