@@ -883,71 +883,62 @@
   .hidden { display: none !important; }
   .divider { height: 1px; background: var(--border); margin: 8px 0; }
 
-  /* ══════════════════════════════════════════════
-     RESPONSIVE / MOBILE STYLES
-     ══════════════════════════════════════════════ */
-
-  .mob-menu-btn {
-    display: none; align-items: center; justify-content: center;
+  /* ══════════════════════════════════════════════════════
+     RESPONSIVE / MOBILE
+  ══════════════════════════════════════════════════════ */
+  .mobile-menu-btn {
+    display: none;
     width: 36px; height: 36px; border-radius: 9px;
     background: var(--surface-2); border: 1px solid var(--border);
+    align-items: center; justify-content: center;
     cursor: pointer; flex-shrink: 0;
   }
-  .mob-menu-btn svg { width: 18px; height: 18px; color: var(--ink-2); }
-
+  .mobile-menu-btn svg { width: 18px; height: 18px; stroke: var(--ink-2); }
   .sidebar-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,.45); z-index: 199;
+    display: none;
+    position: fixed; inset: 0; z-index: 90;
+    background: rgba(0,0,0,.45); backdrop-filter: blur(2px);
   }
-  .sidebar-overlay.mob-open { display: block; }
-
-  @media screen and (max-width: 900px) {
-    .mob-menu-btn { display: flex; }
-
-    .sidebar {
-      position: fixed; left: 0; top: 0; bottom: 0; z-index: 200;
-      transform: translateX(-100%);
-      box-shadow: var(--shadow-lg);
-      width: var(--sidebar-w) !important;
-      transition: transform .25s cubic-bezier(.4,0,.2,1) !important;
-    }
-    .sidebar.mob-open { transform: translateX(0); }
-
+  @media (max-width: 768px) {
+    .mobile-menu-btn { display: flex; }
     .sidebar-expand-pill { display: none !important; }
-    html.sidebar-collapsed .topnav { padding-left: 16px !important; }
-    .main { width: 100%; }
-    .topnav { padding: 0 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .topnav-right { gap: 6px; }
-    .tab-btn { padding: 0 10px; font-size: 12px; flex-shrink: 0; }
-    .page { padding: 12px !important; }
-
-    .watchdog-layout { flex-direction: column !important; height: auto !important; overflow: visible !important; }
-    .watchdog-left { width: 100% !important; max-height: 260px; border-right: none !important; border-bottom: 1px solid var(--border); }
-    .watchdog-right { padding: 12px !important; }
-
+    .sidebar {
+      position: fixed; left: 0; top: 0; bottom: 0; z-index: 100;
+      width: min(var(--sidebar-w), 85vw) !important;
+      transform: translateX(-110%);
+      transition: transform .25s cubic-bezier(.4,0,.2,1);
+      box-shadow: var(--shadow-lg);
+    }
+    html.sidebar-open .sidebar { transform: translateX(0); }
+    html.sidebar-open .sidebar-overlay { display: block; }
+    .layout { flex-direction: column; }
+    .main   { width: 100%; min-width: 0; }
+    .topnav { padding: 8px 12px !important; gap: 6px; flex-wrap: wrap; }
+    .tab-btn { font-size: 11px; padding: 5px 8px; }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .dash-grid { grid-template-columns: 1fr !important; }
+    .modal-box { max-width: 100% !important; border-radius: 16px 16px 0 0 !important; }
+    .modal-backdrop { align-items: flex-end; }
+    .watchdog-layout { flex-direction: column; }
+    .watchdog-left { width: 100%; max-height: 260px; border-right: none; border-bottom: 1px solid var(--border); }
+    .db-type-grid { grid-template-columns: repeat(3, 1fr) !important; }
     .cb-layout { flex-direction: column !important; }
-    .cb-controls { width: 100% !important; max-width: 100% !important; border-right: none !important; border-bottom: 1px solid var(--border); padding: 12px !important; }
-    .cb-canvas { padding: 12px !important; }
-
-    .clean-layout { flex-direction: column !important; height: auto !important; overflow: visible !important; }
-    .clean-left { width: 100% !important; border-right: none !important; border-bottom: 1px solid var(--border); max-height: 350px; }
-    .clean-right { padding: 12px !important; }
-
-    .dash-panels-grid { grid-template-columns: 1fr !important; }
-    .modal-box { max-width: 98vw !important; max-height: 92vh; overflow-y: auto; border-radius: 12px; }
-    .wf-row { flex-wrap: wrap !important; }
-    .kpi-row { grid-template-columns: repeat(2, 1fr) !important; }
-    .conn-form-row { flex-direction: column !important; }
+    .cb-sidebar { width: 100% !important; border-right: none !important; border-bottom: 1px solid var(--border); }
+    .cleaner-layout { flex-direction: column !important; }
+    .cleaner-left { width: 100% !important; max-height: 280px; border-right: none !important; border-bottom: 1px solid var(--border); }
+    .kpi-row { flex-wrap: wrap; }
+    .kpi-card { min-width: 120px; flex: 1 1 120px; }
+    .wf-row { flex-wrap: wrap; }
+    .wf-group { min-width: 140px; }
+    .profile-grid { grid-template-columns: 1fr !important; }
+    #lineage-canvas { height: 380px !important; }
   }
-
-  @media screen and (max-width: 600px) {
-    .kpi-row { grid-template-columns: 1fr !important; }
-    .history-item { padding: 10px 12px !important; }
-    .tab-btn { padding: 0 8px; font-size: 11.5px; }
-    .provider-pill { display: none; }
-    .page-title { font-size: 18px !important; }
-    .lineage-graph-wrap { height: 280px !important; }
-    .topnav-right .theme-toggle + * { display: none; }
+  @media (max-width: 480px) {
+    .topnav { padding: 6px 10px !important; }
+    .page   { padding: 12px !important; }
+    .tab-btn { font-size: 10px; padding: 4px 6px; }
+    .db-type-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .kpi-card { flex: 1 1 100%; }
   }
 
 </style>
@@ -1100,11 +1091,7 @@
   <div class="main">
 
     <!-- Top nav tabs — only the 3 most-used tabs here; all features also in sidebar -->
-    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
     <nav class="topnav">
-      <button class="mob-menu-btn" onclick="toggleMobileSidebar()" title="Menu" style="margin-right:8px;flex-shrink:0">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      </button>
       <button class="tab-btn active" onclick="switchTab('query')" id="tab-query">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         Query
@@ -1325,10 +1312,6 @@
           <div class="cb-controls-title">⚙️ Chart Settings</div>
 
           <div class="cb-group">
-            <label class="cb-label">Database</label>
-            <div class="select-wrap"><select id="cb-db-sel" onchange="cbOnDbChange()"></select></div>
-          </div>
-          <div class="cb-group">
             <label class="cb-label">Table</label>
             <div class="select-wrap"><select id="cb-table" onchange="cbOnTableChange()"></select></div>
           </div>
@@ -1523,10 +1506,6 @@
                 <label class="wf-label">Alert Name</label>
                 <input class="wf-input" id="wd-name" type="text" placeholder="Daily Orders Alert" />
               </div>
-              <div class="wf-group" style="flex:1.5">
-                <label class="wf-label">Database</label>
-                <div class="select-wrap"><select id="wd-db-sel" class="wf-select"></select></div>
-              </div>
             </div>
             <div class="wf-row">
               <div class="wf-group">
@@ -1665,6 +1644,17 @@
           ✅ <strong>Recommended — No ODBC Driver needed:</strong>
           <code style="background:rgba(0,0,0,.08);padding:1px 5px;border-radius:4px;font-size:11px">pip install pymssql</code>
           then restart LinguaSQL. Fill only Server and Database below.
+        </div>
+
+        <!-- Cloud deployment warning -->
+        <div id="mssql-cloud-warn" style="background:var(--amber-bg);border:1px solid rgba(217,119,6,.3);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11.5px;color:var(--amber);display:none">
+          ☁️ <strong>Cloud Deployment Detected:</strong> This app is running on a remote server. Local SQL Server instances
+          like <code style="font-size:10px">YOURPC\SQLEXPRESS</code> or <code style="font-size:10px">localhost</code>
+          are <strong>not reachable</strong> from the cloud.<br><br>
+          <strong>Options:</strong><br>
+          1. Use a cloud SQL Server (Azure SQL, AWS RDS, Supabase, etc.)<br>
+          2. Expose your local SQL Server via <strong>ngrok</strong>: run <code>ngrok tcp 1433</code> then use the ngrok host<br>
+          3. Run LinguaSQL locally so it can reach your local SQL Server directly
         </div>
 
         <div style="background:var(--amber-bg);border:1px solid rgba(217,119,6,.2);border-radius:8px;padding:9px 12px;margin-bottom:12px;font-size:11.5px;color:var(--amber)">
@@ -2909,9 +2899,6 @@ async function onDbChange() {
   await loadSchema();
   loadHints();
   // Keep chart builder in sync
-  // Keep chart builder DB selector in sync if user prefers following global selection
-  const cbDbSel = document.getElementById('cb-db-sel');
-  if (cbDbSel && !cb.db) { cbDbSel.value = state.db; cb.db = state.db; }
   if (document.getElementById('page-chartbuilder')?.classList.contains('active')) {
     cbSyncDatabase();
   } else {
@@ -4591,18 +4578,14 @@ function onFileSelected() {
   //   1. File type is eligible (CSV / Parquet)
   //   2. File is actually large (> 10 MB)
   // For small files or non-eligible types: import immediately with SQLite
-  const showPrompt = _DUCKDB_ELIGIBLE.has(ext) && sizeMB >= _DUCKDB_SIZE_MB && ext !== '.zip';
+  const showPrompt = _DUCKDB_ELIGIBLE.has(ext) && sizeMB >= _DUCKDB_SIZE_MB;
 
-  if (ext === '.zip') {
-    prompt.classList.add('hidden');
-    toast(`📦 ZIP detected — extracting and importing all data files inside...`);
-    importFile(false);
-  } else if (showPrompt) {
+  if (showPrompt) {
     info.textContent = `${file.name} — ${sizeMB.toFixed(1)} MB · Large file detected`;
     prompt.classList.remove('hidden');
   } else {
     prompt.classList.add('hidden');
-    importFile(false);
+    importFile(false);   // import immediately with SQLite
   }
 }
 
@@ -5859,14 +5842,13 @@ const CB_LIMITS = [10, 25, 50, 100, 500];
 const cb = {
   type:    'bar',
   theme:   'blue',
-  db:      '',    // independent of state.db — chart builder has its own selector
   table:   '',
   xcol:    '',
   ycol:    '',
   agg:     'none',
   groupby: true,
   limit:   50,
-  schema:  {},
+  schema:  {},    // table → [{name,type,pk,fk}]
   lastRows:   [],
   lastCols:   [],
   lastTitle:  '',
@@ -5877,29 +5859,7 @@ const cb = {
 function cbOnTabOpen() {
   _cbRenderTypeGrid();
   _cbRenderThemeGrid();
-  cbLoadAllDatabases();
-}
-
-async function cbLoadAllDatabases() {
-  // Populate the chart builder's own DB selector from all registered databases
-  try {
-    const r = await fetch('/api/databases');
-    const d = await r.json();
-    const sel = document.getElementById('cb-db-sel');
-    if (!sel) return;
-    const dbs = d.databases || [];
-    sel.innerHTML = dbs.map(db => `<option value="${escAttr(db)}">${escHtml(db)}</option>`).join('');
-    // Default to the globally selected DB if available, otherwise first
-    const preferred = state.db || dbs[0] || '';
-    if (preferred) sel.value = preferred;
-    cb.db = sel.value;
-    if (cb.db) await cbSyncDatabase();
-  } catch(e) { console.error('cbLoadAllDatabases:', e); }
-}
-
-async function cbOnDbChange() {
-  cb.db = document.getElementById('cb-db-sel')?.value || '';
-  if (cb.db) await cbSyncDatabase();
+  cbSyncDatabase();
 }
 
 function _cbRenderTypeGrid() {
@@ -5943,10 +5903,9 @@ function cbOnLimitChange(idx) {
 // ── Database / table sync ────────────────────────────────
 
 async function cbSyncDatabase() {
-  const targetDb = cb.db || state.db;
-  if (!targetDb) return;
+  if (!state.db) return;
   try {
-    const r = await fetch(`/api/schema/${encodeURIComponent(targetDb)}`);
+    const r = await fetch(`/api/schema/${encodeURIComponent(state.db)}`);
     const d = await r.json();
     cb.schema = {};
     Object.entries(d.schema || {}).forEach(([tbl, data]) => {
@@ -6087,7 +6046,7 @@ async function cbBuild() {
     const r = await fetch('/api/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sql, db_name: cb.db || state.db, max_rows: cb.limit }),
+      body: JSON.stringify({ sql, db_name: state.db, max_rows: cb.limit }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || 'Execute failed');
@@ -6477,20 +6436,10 @@ async function cleanApply() {
       _cleanRefreshCards();
     }
 
-    // If saved as new DB, refresh dropdown and auto-switch so queries use clean data
+    // If saved as new DB, refresh dropdown
     if (d.saved_db_name) {
       await loadDatabases();
-      const sel = document.getElementById('db-select');
-      if (sel) {
-        sel.value = d.saved_db_name;
-        state.db  = d.saved_db_name;
-        await loadSchema();
-        loadHints();
-        toast(`💾 Switched to cleaned DB "${d.saved_db_name}" — all queries now use clean data`);
-      }
-    } else if (!d.write_error) {
-      // Write-back to source succeeded — reload schema
-      await loadSchema();
+      toast(`💾 Also saved as "${d.saved_db_name}" in the database dropdown`);
     }
 
     // Warn if write-back failed
@@ -6629,20 +6578,7 @@ function _injectReasoningTrace(resultUid, trace) {
 
 // ── Feature 2: Watchdog Alerts ───────────────────────────
 
-async function _wdPopulateDbSelector() {
-  try {
-    const r   = await fetch('/api/databases');
-    const d   = await r.json();
-    const sel = document.getElementById('wd-db-sel');
-    if (!sel) return;
-    const dbs = d.databases || [];
-    sel.innerHTML = dbs.map(db => `<option value="${escAttr(db)}">${escHtml(db)}</option>`).join('');
-    if (state.db && dbs.includes(state.db)) sel.value = state.db;
-  } catch(e) {}
-}
-
 async function loadWatchdogs() {
-  _wdPopulateDbSelector();
   try {
     const r = await fetch('/api/watchdog');
     const d = await r.json();
@@ -6693,10 +6629,9 @@ function renderWatchdogs(alerts) {
 }
 
 async function wdGenerateSql() {
-  const nl   = document.getElementById('wd-nl').value.trim();
-  const wdDb = document.getElementById('wd-db-sel')?.value || state.db;
-  if (!nl)   { toast('⚠️ Enter a condition in plain English first'); return; }
-  if (!wdDb) { toast('⚠️ Select a database in the alert form first'); return; }
+  const nl = document.getElementById('wd-nl').value.trim();
+  if (!nl)        { toast('⚠️ Enter a condition in plain English first'); return; }
+  if (!state.db)  { toast('⚠️ Select a database first'); return; }
   if (!state.apiKey && state.provider !== 'ollama') {
     toast('⚠️ Set an API key in the sidebar first'); return;
   }
@@ -6710,7 +6645,7 @@ async function wdGenerateSql() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         nl_condition: nl,
-        db_name:      wdDb,
+        db_name:      state.db,
         provider:     state.provider,
         api_key:      state.apiKey,
       }),
@@ -6743,10 +6678,9 @@ async function createWatchdog() {
   const schedule  = document.getElementById('wd-schedule').value;
   const email     = document.getElementById('wd-email').value.trim();
 
-  const wdDbFinal = document.getElementById('wd-db-sel')?.value || state.db;
-  if (!name)      { toast('⚠️ Enter an alert name'); return; }
-  if (!sql)       { toast('⚠️ Enter a SQL query — or click ✨ Generate SQL'); return; }
-  if (!wdDbFinal) { toast('⚠️ Select a database in the alert form'); return; }
+  if (!name)     { toast('⚠️ Enter an alert name'); return; }
+  if (!sql)      { toast('⚠️ Enter a SQL query — or click ✨ Generate SQL'); return; }
+  if (!state.db) { toast('⚠️ Select a database first'); return; }
 
   const createBtn = document.getElementById('wd-create-btn');
   if (createBtn) { createBtn.disabled = true; createBtn.textContent = '⏳ Creating…'; }
@@ -6757,7 +6691,7 @@ async function createWatchdog() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name, description: nl, nl_condition: nl, sql_query: sql,
-        db_name: wdDbFinal, operator, threshold,
+        db_name: state.db, operator, threshold,
         provider: state.provider, api_key: state.apiKey,
         schedule_cron: schedule, recipient_email: email,
       }),
@@ -7071,28 +7005,185 @@ document.getElementById('query-input').addEventListener('input', function() { au
   }
 })();
 
-// ─────────────────────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════
 //  MOBILE SIDEBAR
-// ─────────────────────────────────────────────────────────
-function toggleMobileSidebar() {
-  const sidebar = document.querySelector('.sidebar');
-  const overlay = document.getElementById('sidebar-overlay');
-  const isOpen  = sidebar.classList.contains('mob-open');
-  sidebar.classList.toggle('mob-open', !isOpen);
-  overlay.classList.toggle('mob-open', !isOpen);
+// ═══════════════════════════════════════════════════════════
+function openMobileSidebar() {
+  document.documentElement.classList.add('sidebar-open');
+  document.documentElement.classList.remove('sidebar-collapsed');
 }
 function closeMobileSidebar() {
-  document.querySelector('.sidebar')?.classList.remove('mob-open');
-  document.getElementById('sidebar-overlay')?.classList.remove('mob-open');
+  document.documentElement.classList.remove('sidebar-open');
 }
-// Auto-close sidebar on mobile when a nav item is clicked
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.sidebar-nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (window.innerWidth <= 900) closeMobileSidebar();
-    });
+// Close sidebar when a nav item is tapped on mobile
+document.querySelectorAll('.sidebar-nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (window.innerWidth <= 768) closeMobileSidebar();
   });
 });
+
+// ═══════════════════════════════════════════════════════════
+//  CLOUD DEPLOYMENT DETECTION — show warning in connect modal
+// ═══════════════════════════════════════════════════════════
+(function detectCloudDeployment() {
+  const hostname = window.location.hostname;
+  const isCloud  = hostname.includes('railway.app') ||
+                   hostname.includes('render.com')  ||
+                   hostname.includes('fly.dev')     ||
+                   hostname.includes('onrender.com')||
+                   hostname.includes('up.railway.app') ||
+                   (!hostname.includes('localhost') && hostname !== '127.0.0.1' && hostname !== '');
+  if (isCloud) {
+    // Store flag — used when MSSQL type is selected
+    window._isCloudDeployment = true;
+  }
+})();
+
+// Override selectDbType to show cloud warning for mssql
+const _origSelectDbType = typeof selectDbType === 'function' ? selectDbType : null;
+function selectDbType(type) {
+  if (_origSelectDbType) _origSelectDbType(type);
+  const warn = document.getElementById('mssql-cloud-warn');
+  if (warn) warn.style.display = (type === 'mssql' && window._isCloudDeployment) ? 'block' : 'none';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DATA CLEANING — persist cleaned data so all ops use it
+// ═══════════════════════════════════════════════════════════
+// After cleanApply() succeeds, the server writes back to the source DB.
+// We also refresh the query results if the user is on the query tab.
+const _origCleanApply = typeof cleanApply === 'function' ? cleanApply : null;
+// Monkey-patch cleanApply to auto-refresh schema after cleaning
+if (_origCleanApply) {
+  window.cleanApply = async function() {
+    await _origCleanApply();
+    // Re-load schema so column list reflects cleaned data
+    setTimeout(() => {
+      if (typeof loadSchema === 'function') loadSchema();
+    }, 800);
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CHART BUILDER — make it work regardless of db/ai provider
+// ═══════════════════════════════════════════════════════════
+// Override renderChartBuilder to not require AI — use raw SQL directly
+function buildChartFromData(tableId) {
+  // Called when user clicks "Build Chart" in chart builder tab
+  const dbSel = document.getElementById('cb-db-select') || document.getElementById('db-select');
+  const db    = dbSel ? dbSel.value : (window.state ? state.db : '');
+  if (!db) { toast('⚠️ Select a database first'); return; }
+
+  const tblSel = document.getElementById('cb-table-select');
+  const table  = tblSel ? tblSel.value : tableId;
+  if (!table) { toast('⚠️ Select a table first'); return; }
+
+  const xSel   = document.getElementById('cb-x-col');
+  const ySel   = document.getElementById('cb-y-col');
+  const typSel = document.getElementById('cb-chart-type');
+  if (!xSel || !ySel) return;
+
+  const x    = xSel.value;
+  const y    = ySel.value;
+  const type = typSel ? typSel.value : 'bar';
+  if (!x || !y) { toast('⚠️ Select X and Y columns'); return; }
+
+  const sql  = `SELECT "${x}", "${y}" FROM "${table}" LIMIT 500`;
+
+  fetch('/api/execute', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sql, db_name: db, max_rows: 500 })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.columns && d.rows) {
+      const chartCfg = { type, x, y, title: `${y} by ${x}`, color: 'teal' };
+      const el = document.getElementById('cb-chart-output') || document.getElementById('chart-preview');
+      if (el && typeof renderEChart === 'function') {
+        renderEChart(el.id, chartCfg, d.rows, d.columns);
+        toast('✅ Chart rendered');
+      }
+    } else {
+      toast('❌ ' + (d.detail || 'No data returned'));
+    }
+  })
+  .catch(e => toast('❌ ' + e.message));
+}
+
+// ═══════════════════════════════════════════════════════════
+//  WATCHDOG — fix Generate SQL button reliability
+// ═══════════════════════════════════════════════════════════
+// Ensure wdGenerateSql works even if api key is empty (use gemini default)
+const _origWdGenerateSql = typeof wdGenerateSql === 'function' ? wdGenerateSql : null;
+window.wdGenerateSql = async function() {
+  const nl = document.getElementById('wd-nl') ? document.getElementById('wd-nl').value.trim() : '';
+  if (!nl) { toast('⚠️ Enter a condition in plain English first'); return; }
+
+  // Auto-select first database if none selected
+  if (!state.db) {
+    const sel = document.getElementById('db-select');
+    if (sel && sel.options.length > 0) {
+      state.db = sel.options[0].value;
+      sel.value = state.db;
+    }
+  }
+  if (!state.db) { toast('⚠️ Select a database first'); return; }
+
+  // Allow generation even without API key if provider is gemini and key available
+  const provider = state.provider || 'gemini';
+  const apiKey   = state.apiKey || '';
+
+  const btn = document.querySelector('.nl-to-alert-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generating…'; }
+
+  try {
+    const r = await fetch('/api/watchdog/generate-sql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nl_condition: nl,
+        db_name:      state.db,
+        provider:     provider,
+        api_key:      apiKey,
+      }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Generation failed');
+    if (d.sql) {
+      const sqlInput = document.getElementById('wd-sql');
+      if (sqlInput) sqlInput.value = d.sql;
+      toast('✅ SQL generated — review before saving');
+    } else {
+      throw new Error('No SQL returned');
+    }
+  } catch(e) {
+    toast('❌ ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✨ Generate SQL'; }
+  }
+};
+
+// ═══════════════════════════════════════════════════════════
+//  ZIP IMPORT — update toast message for zip files
+// ═══════════════════════════════════════════════════════════
+const _origOnFileSelected = typeof onFileSelected === 'function' ? onFileSelected : null;
+window.onFileSelected = function() {
+  const file = document.getElementById('file-input') ? document.getElementById('file-input').files[0] : null;
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'zip') {
+    // Skip DuckDB prompt for zip files — always use SQLite
+    const prompt = document.getElementById('duckdb-import-prompt');
+    if (prompt) prompt.classList.add('hidden');
+    toast(`📦 ZIP detected: "${file.name}" — will auto-extract & import all supported files`);
+    importFile(false);
+    return;
+  }
+  if (_origOnFileSelected) _origOnFileSelected();
+};
+
 
 </script>
 </body>

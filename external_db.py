@@ -227,8 +227,8 @@ def _open_mssql(conn_str: str):
             if user and pwd:
                 kwargs["user"]     = user
                 kwargs["password"] = pwd
-            # Windows auth: omit credentials — pymssql handles it automatically
-            # DO NOT pass trusted=True — that kwarg does not exist in pymssql
+            # Windows Auth: omit credentials — pymssql handles it automatically.
+            # Do NOT pass trusted=True — that keyword does not exist in pymssql.
             conn = _pymssql.connect(**kwargs)
             return conn, "pymssql (no ODBC needed)"
         except Exception as e:
@@ -287,20 +287,31 @@ def _open_mssql(conn_str: str):
 
     # ── All strategies failed ─────────────────────────────────────────────────
     hints = []
-    # Detect local / private hostnames (no dots = not a public DNS name)
-    srv_bare = server_full.split("\\")[0].lower()
-    is_local = (
-        srv_bare in ("localhost", "127.0.0.1", ".", "(local)")
-        or ("." not in srv_bare and not any(srv_bare.startswith(p) for p in ("10.", "192.", "172.")))
+
+    # Detect local/private hostnames — these are unreachable from cloud deployments
+    _srv_bare = server_full.split("\\")[0].lower()
+    _local_indicators = ["localhost", "127.0.0.1", ".", "(local)"]
+    _is_private_ip = _srv_bare.startswith(("10.", "172.", "192.168."))
+    _is_local_name = (
+        any(ind in _srv_bare for ind in _local_indicators)
+        or (
+            "." not in _srv_bare          # no dots = Windows PC hostname, not a DNS name
+            and not _is_private_ip
+            and _srv_bare not in ("", "localhost")
+        )
     )
-    if is_local:
+
+    if _is_local_name or _is_private_ip:
         hints.append(
-            f"⚠️  CLOUD DEPLOYMENT: '{server_full}' looks like a local PC hostname. "
-            "LinguaSQL on Railway cannot reach databases on your local machine or private network. "
-            "Options:\n"
-            "  1. Use a cloud database (Azure SQL, AWS RDS, Supabase, PlanetScale etc.)\n"
-            "  2. Expose your local SQL Server with ngrok (ngrok tcp 1433)\n"
-            "  3. Run LinguaSQL locally (python server.py) to reach local SQL Server directly"
+            f"⚠️  CLOUD DEPLOYMENT ISSUE: '{server_full}' appears to be a local PC or "
+            f"private network machine. This app is running on a cloud server which CANNOT "
+            f"reach SQL Server instances on your local computer or private network.\n\n"
+            f"To connect your local SQL Server you have 3 options:\n"
+            f"  1. Use a cloud-hosted SQL Server (Azure SQL, AWS RDS, Supabase, etc.)\n"
+            f"  2. Expose your local SQL Server publicly using ngrok:\n"
+            f"     • Run: ngrok tcp 1433\n"
+            f"     • Use the ngrok host as your server address\n"
+            f"  3. Run LinguaSQL locally (python server.py) — it can reach {server_full} directly"
         )
     else:
         if not _pymssql:
@@ -309,7 +320,7 @@ def _open_mssql(conn_str: str):
             hints.append("OR install ODBC Driver 17: https://aka.ms/odbc17  then restart LinguaSQL")
 
     raise ConnectionError(
-        f"Could not connect to SQL Server '{server_full}/{db}'.\n"
+        f"Could not connect to SQL Server \'{server_full}/{db}\'.\n"
         + ("\n".join(hints) + "\n" if hints else "")
         + "\nAttempted:\n" + "\n".join(f"  • {e}" for e in errors)
     )

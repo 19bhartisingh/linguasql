@@ -58,7 +58,7 @@ SUPPORTED_EXTENSIONS = {
     ".db":      "SQLite Database",
     ".sqlite":  "SQLite Database",
     ".sqlite3": "SQLite Database",
-    ".zip":     "ZIP Archive (auto-extracts CSV/Excel/JSON/Parquet inside)",
+    ".zip":     "ZIP Archive (auto-extracted)",
 }
 
 
@@ -372,89 +372,104 @@ def import_file_duckdb(file_bytes: bytes, filename: str) -> dict:
 
 
 
-
-def import_zip_file(file_bytes: bytes, filename: str, use_duckdb: bool = False) -> dict:
+def import_zip_file(file_bytes: bytes, filename: str) -> dict:
     """
-    Extract a ZIP archive and import all supported data files inside it.
-    Multiple files become multiple tables in one SQLite database.
-    Returns the same dict shape as import_file().
+    Extract a ZIP archive and import all supported files inside it.
+    Returns a combined result referencing the first successfully imported DB.
+    Multiple files are each imported as separate tables/databases.
     """
     import zipfile, io as _io
-
-    base_name = clean_column_name(os.path.splitext(filename)[0]) or "zip_import"
-    db_path   = f"databases/uploads/{base_name}.db"
-    os.makedirs("databases/uploads", exist_ok=True)
-
-    _IMPORTABLE = {".csv", ".tsv", ".txt", ".xlsx", ".xls", ".json", ".parquet"}
-
-    all_dfs: dict = {}
-    skipped: list = []
+    base_name = clean_column_name(os.path.splitext(filename)[0]) or "archive"
 
     try:
         zf = zipfile.ZipFile(_io.BytesIO(file_bytes))
     except zipfile.BadZipFile:
-        return {"success": False, "error": "Invalid ZIP file — could not open archive"}
+        return {"success": False, "error": "File is not a valid ZIP archive"}
 
-    for entry in zf.infolist():
-        # Skip directories and hidden/system files
-        if entry.is_dir() or os.path.basename(entry.filename).startswith((".", "_", "__")):
-            continue
-        ext = os.path.splitext(entry.filename)[1].lower()
-        if ext not in _IMPORTABLE:
-            skipped.append(entry.filename)
-            continue
+    # Filter to supported files, skip hidden/system files
+    members = [
+        m for m in zf.namelist()
+        if not m.startswith("__MACOSX") and not os.path.basename(m).startswith(".")
+        and os.path.splitext(m)[1].lower() in SUPPORTED_EXTENSIONS
+        and os.path.splitext(m)[1].lower() != ".zip"  # no nested zips
+    ]
+
+    if not members:
+        exts = list(SUPPORTED_EXTENSIONS.keys())
+        return {"success": False,
+                "error": f"ZIP contains no supported files. Supported: {', '.join(exts)}"}
+
+    all_dfs: dict = {}
+    errors  = []
+
+    for member in members:
         try:
-            raw      = zf.read(entry.filename)
-            tbl_name = clean_column_name(os.path.splitext(os.path.basename(entry.filename))[0]) or "data"
-            # Make table name unique if there are dupes
-            orig = tbl_name
-            i = 1
-            while tbl_name in all_dfs:
-                tbl_name = f"{orig}_{i}"; i += 1
+            inner_bytes = zf.read(member)
+            inner_name  = os.path.basename(member)
+            inner_ext   = os.path.splitext(inner_name)[1].lower()
+            tbl_name    = clean_column_name(os.path.splitext(inner_name)[0]) or "data"
 
-            if ext in (".csv", ".tsv", ".txt"):
-                dfs = read_csv_file(raw, entry.filename)
-            elif ext in (".xlsx", ".xls"):
-                dfs = read_excel_file(raw, entry.filename)
-            elif ext == ".json":
-                dfs = read_json_file(raw, entry.filename)
-            elif ext == ".parquet":
-                dfs = read_parquet_file(raw, entry.filename)
+            if inner_ext in (".csv", ".tsv", ".txt"):
+                dfs = read_csv_file(inner_bytes, inner_name)
+            elif inner_ext in (".xlsx", ".xls"):
+                dfs = read_excel_file(inner_bytes, inner_name)
+            elif inner_ext == ".json":
+                dfs = read_json_file(inner_bytes, inner_name)
+            elif inner_ext in (".html", ".htm"):
+                dfs = read_html_file(inner_bytes, inner_name)
+            elif inner_ext == ".parquet":
+                dfs = read_parquet_file(inner_bytes, inner_name)
+            elif inner_ext in (".db", ".sqlite", ".sqlite3"):
+                # Each SQLite file inside the zip gets its own import
+                res = import_sqlite_file(inner_bytes, inner_name)
+                if res.get("success"):
+                    all_dfs[tbl_name] = None  # mark as handled
+                continue
             else:
                 continue
 
-            # Merge tables from this file into all_dfs
-            for k, df in dfs.items():
-                ukey = k if k not in all_dfs else f"{tbl_name}_{k}"
-                all_dfs[ukey] = df
-        except Exception as e:
-            skipped.append(f"{entry.filename} ({e})")
+            # Prefix table names with filename stem to avoid collisions
+            for orig_tbl, df in dfs.items():
+                combined = f"{tbl_name}_{orig_tbl}" if len(dfs) > 1 else tbl_name
+                all_dfs[combined] = df
 
-    zf.close()
+        except Exception as e:
+            errors.append(f"{member}: {e}")
 
     if not all_dfs:
-        sk = ", ".join(skipped[:5])
-        return {"success": False, "error": f"No importable data files found in ZIP. Skipped: {sk or 'none'}"}
+        return {"success": False,
+                "error": "Could not read any files from ZIP. " + "; ".join(errors)}
 
-    dataframes_to_sqlite(all_dfs, db_path)
+    # Write all DataFrames into one SQLite DB
+    db_path = f"databases/uploads/{base_name}.db"
+    os.makedirs("databases/uploads", exist_ok=True)
 
-    display_name = f"📦 {base_name}"
-    register_database(display_name, db_path)
-    set_db_engine(display_name, "sqlite", db_path)
+    # Filter out the None entries (sqlite files handled separately)
+    real_dfs = {k: v for k, v in all_dfs.items() if v is not None}
+    if real_dfs:
+        dataframes_to_sqlite(real_dfs, db_path)
+        display_name = f"📄 {base_name}"
+        register_database(display_name, db_path)
+        set_db_engine(display_name, "sqlite", db_path)
 
-    total_rows = sum(len(df) for df in all_dfs.values())
-    skip_note  = f" ({len(skipped)} file(s) skipped)" if skipped else ""
+        tables = list(real_dfs.keys())
+        msg = (f"Extracted {len(members)} file(s) from ZIP → "
+               f"{len(tables)} table(s): {', '.join(tables[:3])}"
+               + (f" + {len(tables)-3} more" if len(tables) > 3 else ""))
+        if errors:
+            msg += f" (skipped: {'; '.join(errors)})"
+        return {
+            "success":     True,
+            "db_name":     display_name,
+            "db_path":     db_path,
+            "tables":      tables,
+            "message":     msg,
+            "engine":      "sqlite",
+        }
+    else:
+        return {"success": True, "db_name": "multiple", "tables": list(all_dfs.keys()),
+                "message": f"Imported {len(all_dfs)} SQLite database(s) from ZIP", "engine": "sqlite"}
 
-    return {
-        "success":          True,
-        "db_name":          display_name,
-        "db_path":          db_path,
-        "tables":           list(all_dfs.keys()),
-        "message":          f"Extracted {len(all_dfs)} table(s) from ZIP — {total_rows:,} rows{skip_note}",
-        "engine":           "sqlite",
-        "suggest_duckdb":   False,
-        "duckdb_available": DUCKDB_AVAILABLE,
-    }
 
 def import_file(file_bytes: bytes, filename: str,
                 use_duckdb: bool = False) -> dict:
@@ -478,8 +493,6 @@ def import_file(file_bytes: bytes, filename: str,
             return import_file_duckdb(file_bytes, filename)
 
         # Route to format-specific reader
-        if ext == ".zip":
-            return import_zip_file(file_bytes, filename, use_duckdb)
         if ext in (".db", ".sqlite", ".sqlite3"):
             return import_sqlite_file(file_bytes, filename)
         elif ext in (".csv", ".tsv", ".txt"):
@@ -492,6 +505,8 @@ def import_file(file_bytes: bytes, filename: str,
             dfs = read_html_file(file_bytes, filename)
         elif ext == ".parquet":
             dfs = read_parquet_file(file_bytes, filename)
+        elif ext == ".zip":
+            return import_zip_file(file_bytes, filename)
         else:
             return {"success": False, "error": f"Unsupported file type: '{ext}'"}
 
