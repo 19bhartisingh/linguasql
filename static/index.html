@@ -882,6 +882,74 @@
   .w-full { width: 100%; }
   .hidden { display: none !important; }
   .divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+  /* ══════════════════════════════════════════════
+     RESPONSIVE / MOBILE STYLES
+     ══════════════════════════════════════════════ */
+
+  .mob-menu-btn {
+    display: none; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border-radius: 9px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    cursor: pointer; flex-shrink: 0;
+  }
+  .mob-menu-btn svg { width: 18px; height: 18px; color: var(--ink-2); }
+
+  .sidebar-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.45); z-index: 199;
+  }
+  .sidebar-overlay.mob-open { display: block; }
+
+  @media screen and (max-width: 900px) {
+    .mob-menu-btn { display: flex; }
+
+    .sidebar {
+      position: fixed; left: 0; top: 0; bottom: 0; z-index: 200;
+      transform: translateX(-100%);
+      box-shadow: var(--shadow-lg);
+      width: var(--sidebar-w) !important;
+      transition: transform .25s cubic-bezier(.4,0,.2,1) !important;
+    }
+    .sidebar.mob-open { transform: translateX(0); }
+
+    .sidebar-expand-pill { display: none !important; }
+    html.sidebar-collapsed .topnav { padding-left: 16px !important; }
+    .main { width: 100%; }
+    .topnav { padding: 0 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .topnav-right { gap: 6px; }
+    .tab-btn { padding: 0 10px; font-size: 12px; flex-shrink: 0; }
+    .page { padding: 12px !important; }
+
+    .watchdog-layout { flex-direction: column !important; height: auto !important; overflow: visible !important; }
+    .watchdog-left { width: 100% !important; max-height: 260px; border-right: none !important; border-bottom: 1px solid var(--border); }
+    .watchdog-right { padding: 12px !important; }
+
+    .cb-layout { flex-direction: column !important; }
+    .cb-controls { width: 100% !important; max-width: 100% !important; border-right: none !important; border-bottom: 1px solid var(--border); padding: 12px !important; }
+    .cb-canvas { padding: 12px !important; }
+
+    .clean-layout { flex-direction: column !important; height: auto !important; overflow: visible !important; }
+    .clean-left { width: 100% !important; border-right: none !important; border-bottom: 1px solid var(--border); max-height: 350px; }
+    .clean-right { padding: 12px !important; }
+
+    .dash-panels-grid { grid-template-columns: 1fr !important; }
+    .modal-box { max-width: 98vw !important; max-height: 92vh; overflow-y: auto; border-radius: 12px; }
+    .wf-row { flex-wrap: wrap !important; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr) !important; }
+    .conn-form-row { flex-direction: column !important; }
+  }
+
+  @media screen and (max-width: 600px) {
+    .kpi-row { grid-template-columns: 1fr !important; }
+    .history-item { padding: 10px 12px !important; }
+    .tab-btn { padding: 0 8px; font-size: 11.5px; }
+    .provider-pill { display: none; }
+    .page-title { font-size: 18px !important; }
+    .lineage-graph-wrap { height: 280px !important; }
+    .topnav-right .theme-toggle + * { display: none; }
+  }
+
 </style>
 </head>
 <body>
@@ -971,7 +1039,7 @@
         </div>
         <div style="margin-top:6px; display:flex; gap:6px;">
           <label style="flex:1">
-            <input type="file" id="file-input" style="display:none" accept=".csv,.tsv,.xlsx,.xls,.json,.db,.sqlite,.parquet,.html" onchange="onFileSelected()" />
+            <input type="file" id="file-input" style="display:none" accept=".csv,.tsv,.xlsx,.xls,.json,.db,.sqlite,.parquet,.html,.zip" onchange="onFileSelected()" />
             <input type="hidden" id="use-duckdb-flag" value="false" />
             <button class="btn-sm btn-ghost" style="width:100%" onclick="document.getElementById('file-input').click()">
               ＋ Import File
@@ -1032,7 +1100,11 @@
   <div class="main">
 
     <!-- Top nav tabs — only the 3 most-used tabs here; all features also in sidebar -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
     <nav class="topnav">
+      <button class="mob-menu-btn" onclick="toggleMobileSidebar()" title="Menu" style="margin-right:8px;flex-shrink:0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
       <button class="tab-btn active" onclick="switchTab('query')" id="tab-query">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         Query
@@ -1253,6 +1325,10 @@
           <div class="cb-controls-title">⚙️ Chart Settings</div>
 
           <div class="cb-group">
+            <label class="cb-label">Database</label>
+            <div class="select-wrap"><select id="cb-db-sel" onchange="cbOnDbChange()"></select></div>
+          </div>
+          <div class="cb-group">
             <label class="cb-label">Table</label>
             <div class="select-wrap"><select id="cb-table" onchange="cbOnTableChange()"></select></div>
           </div>
@@ -1446,6 +1522,10 @@
               <div class="wf-group" style="flex:2">
                 <label class="wf-label">Alert Name</label>
                 <input class="wf-input" id="wd-name" type="text" placeholder="Daily Orders Alert" />
+              </div>
+              <div class="wf-group" style="flex:1.5">
+                <label class="wf-label">Database</label>
+                <div class="select-wrap"><select id="wd-db-sel" class="wf-select"></select></div>
               </div>
             </div>
             <div class="wf-row">
@@ -2829,6 +2909,9 @@ async function onDbChange() {
   await loadSchema();
   loadHints();
   // Keep chart builder in sync
+  // Keep chart builder DB selector in sync if user prefers following global selection
+  const cbDbSel = document.getElementById('cb-db-sel');
+  if (cbDbSel && !cb.db) { cbDbSel.value = state.db; cb.db = state.db; }
   if (document.getElementById('page-chartbuilder')?.classList.contains('active')) {
     cbSyncDatabase();
   } else {
@@ -4508,14 +4591,18 @@ function onFileSelected() {
   //   1. File type is eligible (CSV / Parquet)
   //   2. File is actually large (> 10 MB)
   // For small files or non-eligible types: import immediately with SQLite
-  const showPrompt = _DUCKDB_ELIGIBLE.has(ext) && sizeMB >= _DUCKDB_SIZE_MB;
+  const showPrompt = _DUCKDB_ELIGIBLE.has(ext) && sizeMB >= _DUCKDB_SIZE_MB && ext !== '.zip';
 
-  if (showPrompt) {
+  if (ext === '.zip') {
+    prompt.classList.add('hidden');
+    toast(`📦 ZIP detected — extracting and importing all data files inside...`);
+    importFile(false);
+  } else if (showPrompt) {
     info.textContent = `${file.name} — ${sizeMB.toFixed(1)} MB · Large file detected`;
     prompt.classList.remove('hidden');
   } else {
     prompt.classList.add('hidden');
-    importFile(false);   // import immediately with SQLite
+    importFile(false);
   }
 }
 
@@ -5772,13 +5859,14 @@ const CB_LIMITS = [10, 25, 50, 100, 500];
 const cb = {
   type:    'bar',
   theme:   'blue',
+  db:      '',    // independent of state.db — chart builder has its own selector
   table:   '',
   xcol:    '',
   ycol:    '',
   agg:     'none',
   groupby: true,
   limit:   50,
-  schema:  {},    // table → [{name,type,pk,fk}]
+  schema:  {},
   lastRows:   [],
   lastCols:   [],
   lastTitle:  '',
@@ -5789,7 +5877,29 @@ const cb = {
 function cbOnTabOpen() {
   _cbRenderTypeGrid();
   _cbRenderThemeGrid();
-  cbSyncDatabase();
+  cbLoadAllDatabases();
+}
+
+async function cbLoadAllDatabases() {
+  // Populate the chart builder's own DB selector from all registered databases
+  try {
+    const r = await fetch('/api/databases');
+    const d = await r.json();
+    const sel = document.getElementById('cb-db-sel');
+    if (!sel) return;
+    const dbs = d.databases || [];
+    sel.innerHTML = dbs.map(db => `<option value="${escAttr(db)}">${escHtml(db)}</option>`).join('');
+    // Default to the globally selected DB if available, otherwise first
+    const preferred = state.db || dbs[0] || '';
+    if (preferred) sel.value = preferred;
+    cb.db = sel.value;
+    if (cb.db) await cbSyncDatabase();
+  } catch(e) { console.error('cbLoadAllDatabases:', e); }
+}
+
+async function cbOnDbChange() {
+  cb.db = document.getElementById('cb-db-sel')?.value || '';
+  if (cb.db) await cbSyncDatabase();
 }
 
 function _cbRenderTypeGrid() {
@@ -5833,9 +5943,10 @@ function cbOnLimitChange(idx) {
 // ── Database / table sync ────────────────────────────────
 
 async function cbSyncDatabase() {
-  if (!state.db) return;
+  const targetDb = cb.db || state.db;
+  if (!targetDb) return;
   try {
-    const r = await fetch(`/api/schema/${encodeURIComponent(state.db)}`);
+    const r = await fetch(`/api/schema/${encodeURIComponent(targetDb)}`);
     const d = await r.json();
     cb.schema = {};
     Object.entries(d.schema || {}).forEach(([tbl, data]) => {
@@ -5976,7 +6087,7 @@ async function cbBuild() {
     const r = await fetch('/api/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sql, db_name: state.db, max_rows: cb.limit }),
+      body: JSON.stringify({ sql, db_name: cb.db || state.db, max_rows: cb.limit }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || 'Execute failed');
@@ -6366,10 +6477,20 @@ async function cleanApply() {
       _cleanRefreshCards();
     }
 
-    // If saved as new DB, refresh dropdown
+    // If saved as new DB, refresh dropdown and auto-switch so queries use clean data
     if (d.saved_db_name) {
       await loadDatabases();
-      toast(`💾 Also saved as "${d.saved_db_name}" in the database dropdown`);
+      const sel = document.getElementById('db-select');
+      if (sel) {
+        sel.value = d.saved_db_name;
+        state.db  = d.saved_db_name;
+        await loadSchema();
+        loadHints();
+        toast(`💾 Switched to cleaned DB "${d.saved_db_name}" — all queries now use clean data`);
+      }
+    } else if (!d.write_error) {
+      // Write-back to source succeeded — reload schema
+      await loadSchema();
     }
 
     // Warn if write-back failed
@@ -6508,7 +6629,20 @@ function _injectReasoningTrace(resultUid, trace) {
 
 // ── Feature 2: Watchdog Alerts ───────────────────────────
 
+async function _wdPopulateDbSelector() {
+  try {
+    const r   = await fetch('/api/databases');
+    const d   = await r.json();
+    const sel = document.getElementById('wd-db-sel');
+    if (!sel) return;
+    const dbs = d.databases || [];
+    sel.innerHTML = dbs.map(db => `<option value="${escAttr(db)}">${escHtml(db)}</option>`).join('');
+    if (state.db && dbs.includes(state.db)) sel.value = state.db;
+  } catch(e) {}
+}
+
 async function loadWatchdogs() {
+  _wdPopulateDbSelector();
   try {
     const r = await fetch('/api/watchdog');
     const d = await r.json();
@@ -6559,9 +6693,10 @@ function renderWatchdogs(alerts) {
 }
 
 async function wdGenerateSql() {
-  const nl = document.getElementById('wd-nl').value.trim();
-  if (!nl)        { toast('⚠️ Enter a condition in plain English first'); return; }
-  if (!state.db)  { toast('⚠️ Select a database first'); return; }
+  const nl   = document.getElementById('wd-nl').value.trim();
+  const wdDb = document.getElementById('wd-db-sel')?.value || state.db;
+  if (!nl)   { toast('⚠️ Enter a condition in plain English first'); return; }
+  if (!wdDb) { toast('⚠️ Select a database in the alert form first'); return; }
   if (!state.apiKey && state.provider !== 'ollama') {
     toast('⚠️ Set an API key in the sidebar first'); return;
   }
@@ -6575,7 +6710,7 @@ async function wdGenerateSql() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         nl_condition: nl,
-        db_name:      state.db,
+        db_name:      wdDb,
         provider:     state.provider,
         api_key:      state.apiKey,
       }),
@@ -6608,9 +6743,10 @@ async function createWatchdog() {
   const schedule  = document.getElementById('wd-schedule').value;
   const email     = document.getElementById('wd-email').value.trim();
 
-  if (!name)     { toast('⚠️ Enter an alert name'); return; }
-  if (!sql)      { toast('⚠️ Enter a SQL query — or click ✨ Generate SQL'); return; }
-  if (!state.db) { toast('⚠️ Select a database first'); return; }
+  const wdDbFinal = document.getElementById('wd-db-sel')?.value || state.db;
+  if (!name)      { toast('⚠️ Enter an alert name'); return; }
+  if (!sql)       { toast('⚠️ Enter a SQL query — or click ✨ Generate SQL'); return; }
+  if (!wdDbFinal) { toast('⚠️ Select a database in the alert form'); return; }
 
   const createBtn = document.getElementById('wd-create-btn');
   if (createBtn) { createBtn.disabled = true; createBtn.textContent = '⏳ Creating…'; }
@@ -6621,7 +6757,7 @@ async function createWatchdog() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name, description: nl, nl_condition: nl, sql_query: sql,
-        db_name: state.db, operator, threshold,
+        db_name: wdDbFinal, operator, threshold,
         provider: state.provider, api_key: state.apiKey,
         schedule_cron: schedule, recipient_email: email,
       }),
@@ -6934,6 +7070,30 @@ document.getElementById('query-input').addEventListener('input', function() { au
     } catch(e) {}
   }
 })();
+
+// ─────────────────────────────────────────────────────────
+//  MOBILE SIDEBAR
+// ─────────────────────────────────────────────────────────
+function toggleMobileSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const isOpen  = sidebar.classList.contains('mob-open');
+  sidebar.classList.toggle('mob-open', !isOpen);
+  overlay.classList.toggle('mob-open', !isOpen);
+}
+function closeMobileSidebar() {
+  document.querySelector('.sidebar')?.classList.remove('mob-open');
+  document.getElementById('sidebar-overlay')?.classList.remove('mob-open');
+}
+// Auto-close sidebar on mobile when a nav item is clicked
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.sidebar-nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (window.innerWidth <= 900) closeMobileSidebar();
+    });
+  });
+});
+
 </script>
 </body>
 </html>

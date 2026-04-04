@@ -227,8 +227,8 @@ def _open_mssql(conn_str: str):
             if user and pwd:
                 kwargs["user"]     = user
                 kwargs["password"] = pwd
-            else:
-                kwargs["trusted"] = True
+            # Windows auth: omit credentials — pymssql handles it automatically
+            # DO NOT pass trusted=True — that kwarg does not exist in pymssql
             conn = _pymssql.connect(**kwargs)
             return conn, "pymssql (no ODBC needed)"
         except Exception as e:
@@ -287,10 +287,26 @@ def _open_mssql(conn_str: str):
 
     # ── All strategies failed ─────────────────────────────────────────────────
     hints = []
-    if not _pymssql:
-        hints.append("QUICKEST FIX: pip install pymssql  (no ODBC driver needed)")
-    if not odbc_drv:
-        hints.append("OR install ODBC Driver 17: https://aka.ms/odbc17  then restart LinguaSQL")
+    # Detect local / private hostnames (no dots = not a public DNS name)
+    srv_bare = server_full.split("\\")[0].lower()
+    is_local = (
+        srv_bare in ("localhost", "127.0.0.1", ".", "(local)")
+        or ("." not in srv_bare and not any(srv_bare.startswith(p) for p in ("10.", "192.", "172.")))
+    )
+    if is_local:
+        hints.append(
+            f"⚠️  CLOUD DEPLOYMENT: '{server_full}' looks like a local PC hostname. "
+            "LinguaSQL on Railway cannot reach databases on your local machine or private network. "
+            "Options:\n"
+            "  1. Use a cloud database (Azure SQL, AWS RDS, Supabase, PlanetScale etc.)\n"
+            "  2. Expose your local SQL Server with ngrok (ngrok tcp 1433)\n"
+            "  3. Run LinguaSQL locally (python server.py) to reach local SQL Server directly"
+        )
+    else:
+        if not _pymssql:
+            hints.append("QUICKEST FIX: pip install pymssql  (no ODBC driver needed)")
+        if not odbc_drv:
+            hints.append("OR install ODBC Driver 17: https://aka.ms/odbc17  then restart LinguaSQL")
 
     raise ConnectionError(
         f"Could not connect to SQL Server '{server_full}/{db}'.\n"
