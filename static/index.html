@@ -6335,6 +6335,13 @@ async function cbBuild() {
     document.getElementById('cb-empty').style.display = 'none';
     document.getElementById('cb-data-table-wrap').classList.remove('hidden');
 
+    // ── AUTO-COLLAPSE: always collapse settings panel after a successful build
+    //    so the chart is fully visible on any screen size.
+    //    On desktop the user can reopen with the ‹ button or [ key.
+    if (_panelOpen && _panelOpen.cb) {
+      togglePanel('cb');
+    }
+
   } catch(e) { toast('❌ ' + e.message); }
   finally { btn.disabled = false; btn.textContent = '▶ Build Chart'; }
 }
@@ -6712,6 +6719,11 @@ async function cleanApply() {
     // Warn if write-back failed
     if (d.write_error) {
       setTimeout(() => toast(`⚠️ ${d.write_error}`), 1000);
+    }
+
+    // ── AUTO-COLLAPSE: hide issues panel so cleaned data preview is fully visible
+    if (_panelOpen && _panelOpen.clean) {
+      togglePanel('clean');
     }
 
   } catch(e) {
@@ -7311,32 +7323,8 @@ function togglePanel(panel) {
   }, 300);
 }
 
-// AUTO-COLLAPSE after Build Chart on mobile
-// Use DOMContentLoaded to ensure cbBuild is defined first
-window.addEventListener('DOMContentLoaded', () => {
-  // Wrap cbBuild
-  const _origCbBuild = window.cbBuild;
-  if (typeof _origCbBuild === 'function') {
-    window.cbBuild = async function() {
-      await _origCbBuild.apply(this, arguments);
-      if (window.innerWidth <= 768 && _panelOpen.cb) {
-        togglePanel('cb');
-      }
-    };
-  }
-
-  // Wrap cleanApply
-  const _origCleanApply = window.cleanApply;
-  if (typeof _origCleanApply === 'function') {
-    window.cleanApply = async function() {
-      await _origCleanApply.apply(this, arguments);
-      if (window.innerWidth <= 768 && _panelOpen.clean) {
-        togglePanel('clean');
-      }
-      setTimeout(() => { if (typeof loadSchema === 'function') loadSchema(); }, 800);
-    };
-  }
-});
+// cbBuild auto-collapse is handled directly inside cbBuild() above.
+// cleanApply auto-collapse handled below via direct edit.
 
 // Keyboard shortcuts (desktop only)
 document.addEventListener('keydown', e => {
