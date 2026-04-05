@@ -903,21 +903,28 @@
   .panel-toggle-btn {
     position: absolute;
     top: 50%;
-    left: 256px;                 /* right edge of the 264px panel */
-    transform: translate(-50%, -50%);
+    left: var(--panel-w, 264px);
+    transform: translateY(-50%);
     z-index: 30;
     width: 22px; height: 48px;
     background: var(--surface);
     border: 1px solid var(--border);
+    border-left: none;
     border-radius: 0 8px 8px 0;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     box-shadow: 2px 0 6px rgba(0,0,0,.08);
-    transition: background .15s, box-shadow .15s;
+    transition: background .15s, box-shadow .15s, left .28s cubic-bezier(.4,0,.2,1);
     color: var(--ink-3);
     padding: 0;
     flex-shrink: 0;
   }
+  /* Per-panel widths so toggle button sits exactly on the border */
+  #cb-layout    { --panel-w: 264px; }
+  #wd-layout    { --panel-w: 340px; }
+  #clean-layout { --panel-w: 360px; }
+  /* When collapsed, button moves to left edge */
+  .panel-collapsed .panel-toggle-btn { left: 0 !important; border-left: 1px solid var(--border); border-radius: 0 8px 8px 0; }
   .panel-toggle-btn:hover { background: var(--surface-2); color: var(--ink); box-shadow: var(--shadow); }
   .panel-toggle-btn svg { width: 12px; height: 12px; transition: transform .25s; pointer-events: none; }
 
@@ -943,7 +950,6 @@
     border-right: none !important;
   }
   /* Flip the arrow when collapsed */
-  .panel-collapsed .panel-toggle-btn { left: 0; border-radius: 0 8px 8px 0; }
   .panel-collapsed .panel-toggle-btn svg { transform: rotate(180deg); }
 
   /* Resize chart after collapse */
@@ -2420,6 +2426,7 @@ html.dark .quick-send-card { background: rgba(37,99,235,.1); }
   width: 264px; flex-shrink: 0; overflow-y: auto;
   background: var(--surface); border-right: 1px solid var(--border);
   padding: 16px 14px; display: flex; flex-direction: column; gap: 14px;
+  transition: width .28s cubic-bezier(.4,0,.2,1), padding .28s, opacity .2s, min-width .28s;
 }
 .cb-controls-title { font-size: 13px; font-weight: 700; color: var(--ink); }
 .cb-canvas {
@@ -2547,6 +2554,7 @@ html.dark .reasoning-step { background: rgba(124,58,237,.12); }
   width: 340px; flex-shrink:0; overflow-y:auto;
   border-right: 1px solid var(--border); background: var(--surface);
   display: flex; flex-direction: column;
+  transition: width .28s cubic-bezier(.4,0,.2,1), padding .28s, opacity .2s, min-width .28s;
 }
 .watchdog-right { flex:1; overflow-y:auto; padding: 20px 24px; }
 .watchdog-section-head {
@@ -2650,6 +2658,7 @@ html.dark .detective-hero { background:linear-gradient(135deg,rgba(37,99,235,.12
   width: 360px; flex-shrink:0; overflow-y:auto;
   background: var(--surface); border-right: 1px solid var(--border);
   display:flex; flex-direction:column;
+  transition: width .28s cubic-bezier(.4,0,.2,1), padding .28s, opacity .2s, min-width .28s;
 }
 .clean-right { flex:1; overflow-y:auto; padding:20px 24px; }
 .clean-header {
@@ -7303,29 +7312,31 @@ function togglePanel(panel) {
 }
 
 // AUTO-COLLAPSE after Build Chart on mobile
-const _origCbBuild = typeof cbBuild === 'function' ? cbBuild : null;
-if (_origCbBuild) {
-  window.cbBuild = async function() {
-    await _origCbBuild();
-    // Always collapse after build on mobile; on desktop leave it open
-    if (window.innerWidth <= 768) {
-      if (_panelOpen.cb) togglePanel('cb');
-    }
-  };
-}
+// Use DOMContentLoaded to ensure cbBuild is defined first
+window.addEventListener('DOMContentLoaded', () => {
+  // Wrap cbBuild
+  const _origCbBuild = window.cbBuild;
+  if (typeof _origCbBuild === 'function') {
+    window.cbBuild = async function() {
+      await _origCbBuild.apply(this, arguments);
+      if (window.innerWidth <= 768 && _panelOpen.cb) {
+        togglePanel('cb');
+      }
+    };
+  }
 
-// AUTO-COLLAPSE after Apply Cleaning on mobile
-const _origCleanApply = typeof cleanApply === 'function' ? cleanApply : null;
-if (_origCleanApply) {
-  window.cleanApply = async function() {
-    await _origCleanApply();
-    if (window.innerWidth <= 768) {
-      if (_panelOpen.clean) togglePanel('clean');
-    }
-    // Refresh schema after cleaning
-    setTimeout(() => { if (typeof loadSchema === 'function') loadSchema(); }, 800);
-  };
-}
+  // Wrap cleanApply
+  const _origCleanApply = window.cleanApply;
+  if (typeof _origCleanApply === 'function') {
+    window.cleanApply = async function() {
+      await _origCleanApply.apply(this, arguments);
+      if (window.innerWidth <= 768 && _panelOpen.clean) {
+        togglePanel('clean');
+      }
+      setTimeout(() => { if (typeof loadSchema === 'function') loadSchema(); }, 800);
+    };
+  }
+});
 
 // Keyboard shortcuts (desktop only)
 document.addEventListener('keydown', e => {
