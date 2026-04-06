@@ -213,7 +213,7 @@
   .loading-dot, .skeleton, @keyframes, [class*="anim"] { transition: none !important; }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.5; }
+  html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.5; overflow-x: hidden; }
   button { font-family: inherit; cursor: pointer; border: none; outline: none; }
   input, textarea, select { font-family: inherit; outline: none; }
   a { color: var(--accent); text-decoration: none; }
@@ -267,8 +267,10 @@
     opacity: 0; visibility: hidden; pointer-events: none;
   }
   html.sidebar-collapsed .sidebar-expand-pill { display: flex; }
-  /* Push topnav content right so it doesn't sit behind the pill */
-  html.sidebar-collapsed .topnav { padding-left: 130px; transition: padding-left .25s cubic-bezier(.4,0,.2,1); }
+  /* Push topnav content right so it doesn't sit behind the pill — desktop only */
+  @media (min-width: 769px) {
+    html.sidebar-collapsed .topnav { padding-left: 130px; }
+  }
   .topnav { transition: padding-left .25s cubic-bezier(.4,0,.2,1); }
 
   /* ── SIDEBAR ── */
@@ -363,7 +365,7 @@
   .schema-col-badge.fk { background: var(--violet-bg); color: var(--violet); }
 
   /* ── MAIN ── */
-  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 
   /* ── TOP NAV ── */
   .topnav {
@@ -394,7 +396,7 @@
   .badge-violet{ background: var(--violet-bg); color: var(--violet); }
 
   /* ── PAGE PANELS ── */
-  .page { flex: 1; overflow: hidden; display: none; flex-direction: column; }
+  .page { flex: 1; overflow: hidden; display: none; flex-direction: column; min-height: 0; }
   .page.active { display: flex; }
 
   /* ── QUERY PAGE ── */
@@ -470,7 +472,7 @@
   /* Data table */
   .data-table-wrap {
     overflow: auto;
-    max-height: calc(100vh - 340px);  /* dynamic — scrolls within page, never clips */
+    max-height: min(calc(100vh - 340px), 60vh);  /* clamp so it never clips on short screens */
     min-height: 120px;
     border-radius: 8px;
     border: 1px solid var(--border);
@@ -883,250 +885,218 @@
   .hidden { display: none !important; }
   .divider { height: 1px; background: var(--border); margin: 8px 0; }
 
-  /* ══════════════════════════════════════════════════════
-     PANEL DRAWER SYSTEM
-     Mobile: settings panel is a bottom drawer (hidden by default)
-     Desktop: classic side-by-side, with a collapse toggle
-  ══════════════════════════════════════════════════════ */
+  /* ════════════════════════════════════════════════════════
+     RESPONSIVE DESIGN — Full mobile / tablet / desktop
+     Breakpoints:
+       <= 480px  = xs  (phones portrait)
+       <= 768px  = sm  (phones landscape, small tablets)
+       <= 1024px = md  (tablets, small laptops)
+     ════════════════════════════════════════════════════════ */
 
-  /* ── Shared layout wrapper ── */
-  .cb-layout,
-  .clean-layout,
-  .watchdog-layout {
-    position: relative;
-    display: flex;
-    height: 100%;
-    overflow: hidden;
+  /* ── TABLET (<=1024px) ─────────────────────────────────── */
+  @media (max-width: 1024px) {
+    :root { --sidebar-w: 220px; }
+    .tab-btn { padding: 0 12px; font-size: 12.5px; }
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .dash-panel.size-full { grid-column: 1; }
+    .watchdog-layout { flex-direction: column; }
+    .watchdog-left   { width: 100%; max-height: 320px; border-right: none; border-bottom: 1px solid var(--border); }
+    .clean-layout    { flex-direction: column; }
+    .clean-left      { width: 100%; max-height: 320px; border-right: none; border-bottom: 1px solid var(--border); }
+    .cb-layout   { flex-direction: column; }
+    .cb-controls { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 260px; overflow-y: auto; }
+    .modal-body         { flex-direction: column; }
+    .modal-divider      { width: 100%; height: 1px; margin: 0; }
+    .schedule-form-col  { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+    .profile-grid { grid-template-columns: 1fr; }
+    .dash-hero { padding: 20px 22px; }
+    .dash-hero-title { font-size: 22px; }
+    .kpi-row { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
   }
 
-  /* ── Toggle button — floats on the border ── */
-  .panel-toggle-btn {
-    position: absolute;
-    top: 50%;
-    left: var(--panel-w, 264px);
-    transform: translateY(-50%);
-    z-index: 30;
-    width: 22px; height: 48px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-left: none;
-    border-radius: 0 8px 8px 0;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 2px 0 6px rgba(0,0,0,.08);
-    transition: background .15s, box-shadow .15s, left .28s cubic-bezier(.4,0,.2,1);
-    color: var(--ink-3);
-    padding: 0;
-    flex-shrink: 0;
-  }
-  /* Per-panel widths so toggle button sits exactly on the border */
-  #cb-layout    { --panel-w: 264px; }
-  #wd-layout    { --panel-w: 340px; }
-  #clean-layout { --panel-w: 360px; }
-  /* When collapsed, button moves to left edge */
-  .panel-collapsed .panel-toggle-btn { left: 0 !important; border-left: 1px solid var(--border); border-radius: 0 8px 8px 0; }
-  .panel-toggle-btn:hover { background: var(--surface-2); color: var(--ink); box-shadow: var(--shadow); }
-  .panel-toggle-btn svg { width: 12px; height: 12px; transition: transform .25s; pointer-events: none; }
-
-  /* ── Left panels — common ── */
-  .cb-controls,
-  .clean-left,
-  .watchdog-left {
-    transition: width .28s cubic-bezier(.4,0,.2,1),
-                opacity .2s,
-                padding .28s;
-    overflow: hidden;
-  }
-
-  /* ── COLLAPSED state ── */
-  .panel-collapsed .cb-controls,
-  .panel-collapsed .clean-left,
-  .panel-collapsed .watchdog-left {
-    width: 0 !important;
-    min-width: 0 !important;
-    padding: 0 !important;
-    opacity: 0;
-    pointer-events: none;
-    border-right: none !important;
-  }
-  /* Flip the arrow when collapsed */
-  .panel-collapsed .panel-toggle-btn svg { transform: rotate(180deg); }
-
-  /* Resize chart after collapse */
-  .panel-collapsed .cb-canvas,
-  .panel-collapsed .clean-right,
-  .panel-collapsed .watchdog-right { transition: flex .28s; }
-
-  /* ── "⚙ Settings" re-open strip on collapsed edge ── */
-  .panel-reopen-strip {
-    display: none;
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 26px;
-    background: var(--accent);
-    color: #fff;
-    cursor: pointer;
-    z-index: 25;
-    align-items: center;
-    justify-content: center;
-    writing-mode: vertical-rl;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    border-radius: 0 6px 6px 0;
-    user-select: none;
-    transition: opacity .2s;
-  }
-  .panel-collapsed .panel-reopen-strip { display: flex; }
-
-  /* ── Inner "Hide ‹" close button inside panel header ── */
-  .panel-close-btn {
-    background: none; border: none; cursor: pointer;
-    padding: 2px 6px; border-radius: 6px;
-    color: var(--ink-3); font-size: 11px;
-    display: flex; align-items: center; gap: 3px;
-    transition: background .15s, color .15s;
-    flex-shrink: 0;
-  }
-  .panel-close-btn:hover { background: var(--surface-2); color: var(--ink); }
-  .panel-close-btn svg { width: 11px; height: 11px; }
-
-  /* ══════════════════════════════════════════════════════
-     MOBILE — Panel becomes a full-screen bottom sheet
-  ══════════════════════════════════════════════════════ */
+  /* ── MOBILE (<=768px) ──────────────────────────────────── */
   @media (max-width: 768px) {
-    /* Stack vertically */
-    .cb-layout,
-    .clean-layout,
-    .watchdog-layout {
-      flex-direction: column !important;
-    }
+    :root { --sidebar-w: 0px; }
 
-    /* Hide the side toggle on mobile */
-    .panel-toggle-btn { display: none !important; }
-    .panel-reopen-strip { display: none !important; }
+    /* Sidebar: off-canvas drawer */
+    .sidebar {
+      position: fixed; top: 0; left: 0; height: 100%;
+      width: 280px !important; min-width: 0 !important;
+      z-index: 300;
+      transform: translateX(-100%);
+      transition: transform .25s cubic-bezier(.4,0,.2,1);
+      box-shadow: var(--shadow-lg);
+    }
+    html.sidebar-open .sidebar { transform: translateX(0); }
+    html.sidebar-open::after {
+      content: '';
+      position: fixed; inset: 0; z-index: 299;
+      background: rgba(0,0,0,.4);
+    }
+    html.sidebar-collapsed .sidebar {
+      width: 280px !important;
+      transform: translateX(-100%);
+    }
+    html.sidebar-collapsed.sidebar-open .sidebar { transform: translateX(0); }
+    .sidebar-expand-pill { display: flex !important; height: 48px; }
+    html.sidebar-collapsed .topnav { padding-left: 0; }
+    .main { width: 100%; }
 
-    /* Left panel = compact top bar, collapses to nothing */
-    .cb-controls {
-      width: 100% !important;
-      max-height: 60vh;
-      border-right: none !important;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-      overflow-y: auto;
-      transition: max-height .35s cubic-bezier(.4,0,.2,1), opacity .25s, padding .25s !important;
+    /* Topnav */
+    .topnav {
+      padding: 0 8px 0 130px;
+      overflow-x: auto; gap: 0;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
-    .clean-left {
-      width: 100% !important;
-      max-height: 55vh;
-      border-right: none !important;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-      overflow-y: auto;
-      transition: max-height .35s cubic-bezier(.4,0,.2,1), opacity .25s, padding .25s !important;
-    }
-    .watchdog-left {
-      width: 100% !important;
-      max-height: 45vh;
-      border-right: none !important;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-      overflow-y: auto;
-      transition: max-height .35s cubic-bezier(.4,0,.2,1), opacity .25s, padding .25s !important;
-    }
+    .topnav::-webkit-scrollbar { display: none; }
+    .tab-btn { padding: 0 10px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+    .topnav-right { flex-shrink: 0; gap: 6px; }
 
-    /* Right/canvas fills remaining space */
-    .cb-canvas,
-    .clean-right,
-    .watchdog-right {
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-    }
+    /* Conversation */
+    .convo-area { padding: 12px 14px; gap: 12px; }
 
-    /* Chart minimum height on mobile */
-    #cb-main-chart { height: 320px !important; }
-    .cb-chart-wrap { min-height: 320px !important; }
+    /* Query bar */
+    .query-bar { padding: 10px 12px; }
+    .hint-chip { font-size: 11px; padding: 3px 8px; }
 
-    /* COLLAPSED on mobile = max-height:0 */
-    .panel-collapsed .cb-controls {
-      max-height: 0 !important;
-      padding: 0 !important;
-      opacity: 0 !important;
-      pointer-events: none;
-      border-bottom: none !important;
-      width: 100% !important;
-    }
-    .panel-collapsed .clean-left {
-      max-height: 0 !important;
-      padding: 0 !important;
-      opacity: 0 !important;
-      pointer-events: none;
-      border-bottom: none !important;
-      width: 100% !important;
-    }
-    .panel-collapsed .watchdog-left {
-      max-height: 0 !important;
-      padding: 0 !important;
-      opacity: 0 !important;
-      pointer-events: none;
-      border-bottom: none !important;
-      width: 100% !important;
-    }
+    /* Result card */
+    .result-card-header { padding: 10px 12px; }
+    .result-tabs  { padding: 0 10px; }
+    .result-tab   { padding: 7px 10px; font-size: 12px; }
+    .result-panel { padding: 12px; }
+    .data-table-wrap { max-height: calc(100vh - 300px); }
+    thead th, tbody td { font-size: 11.5px; padding: 7px 9px; }
 
-    /* Mobile open/close FAB — floating action button */
-    .mobile-panel-fab {
-      display: flex !important;
-    }
+    /* Charts */
+    .echart-wrap  { height: 260px; }
+    .dash-echart  { height: 220px; }
+    .dash-echart.tall { height: 260px; }
+
+    /* Dashboard */
+    .page-inner { padding: 14px; }
+    .page-title { font-size: 20px; }
+    .page-sub   { font-size: 12px; margin-bottom: 14px; }
+    .goal-input-card { padding: 14px; margin-bottom: 16px; }
+    .goal-input-row  { flex-direction: column; gap: 8px; }
+    .btn-primary { width: 100%; }
+    .goal-chip { font-size: 11px; padding: 5px 10px; }
+
+    /* Hero */
+    .dash-hero { padding: 16px; margin-bottom: 16px; }
+    .dash-hero-title { font-size: 18px; }
+    .dash-hero-sub   { font-size: 12px; }
+    .dash-hero-meta  { gap: 12px; }
+
+    /* KPI */
+    .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+    .kpi-card   { padding: 14px; }
+    .kpi-value  { font-size: 24px; }
+    .kpi-icon   { font-size: 18px; margin-bottom: 8px; }
+    .kpi-bg-icon { font-size: 38px; }
+
+    /* Dashboard grid */
+    .dashboard-grid { grid-template-columns: 1fr; gap: 12px; }
+    .dash-panel.size-full { grid-column: 1; }
+    .dash-panel-header { padding: 10px 14px 8px; }
+    .dash-panel-body   { padding: 10px; }
+    .dash-table-wrap   { max-height: 220px; }
+
+    /* Profile */
+    .profile-grid { grid-template-columns: 1fr; }
+
+    /* History */
+    .history-item { padding: 12px; gap: 10px; }
+    .hist-question { font-size: 12.5px; }
+    .hist-actions { flex-direction: column; gap: 4px; }
+
+    /* Watchdog */
+    .watchdog-layout { flex-direction: column; height: auto; }
+    .watchdog-left   { width: 100%; max-height: 280px; border-right: none; border-bottom: 1px solid var(--border); }
+    .watchdog-right  { padding: 14px; }
+    .watchdog-form   { padding: 14px; }
+    .wf-row  { flex-direction: column; gap: 8px; }
+    .wf-group { min-width: 100%; }
+
+    /* Cleaner */
+    .clean-layout { flex-direction: column; height: auto; }
+    .clean-left   { width: 100%; max-height: 280px; border-right: none; border-bottom: 1px solid var(--border); }
+    .clean-right  { padding: 14px; }
+
+    /* Chart builder */
+    .cb-layout   { flex-direction: column; height: auto; }
+    .cb-controls { width: 100%; max-height: 240px; border-right: none; border-bottom: 1px solid var(--border); padding: 12px; }
+    .cb-canvas   { padding: 12px; }
+    .cb-chart-wrap { min-height: 300px; }
+    #cb-main-chart { height: 300px; }
+
+    /* Lineage */
+    .lineage-page { padding: 12px; gap: 10px; }
+    .lineage-graph-wrap { min-height: 280px; }
+    #lineage-chart { min-height: 280px; }
+
+    /* Modals: bottom sheet */
+    .modal-backdrop { padding: 0; align-items: flex-end; }
+    .modal-box { border-radius: 18px 18px 0 0; max-width: 100%; max-height: 92vh; }
+    .modal-header { padding: 16px 18px 12px; }
+    .modal-title  { font-size: 17px; }
+    .modal-body         { flex-direction: column; }
+    .modal-divider      { width: 100%; height: 1px; }
+    .schedule-form-col  { width: 100%; max-height: 55vh; }
+    .schedule-list-col  { max-height: 35vh; }
+
+    /* Auth modal */
+    .auth-modal-box { border-radius: 18px 18px 0 0; max-width: 100%; }
+    .auth-modal-header { padding: 20px 20px 16px; }
+    .auth-body { padding: 18px; }
+
+    /* Toast */
+    .toast { left: 12px; right: 12px; bottom: 12px; width: auto; font-size: 12.5px; }
+
+    /* SQL block */
+    .sql-block { font-size: 11px; padding: 12px; }
+
+    /* Insights */
+    .insight-card { padding: 10px 12px; gap: 10px; }
+    .insight-icon { width: 28px; height: 28px; font-size: 16px; }
+    .insight-text { font-size: 12.5px; }
+
+    /* Steps */
+    .step-item { padding: 10px; gap: 10px; }
+    .step-text { font-size: 12.5px; }
+
+    /* Empty state */
+    .empty-state { padding: 32px 16px; }
+    .empty-icon  { font-size: 32px; }
+    .empty-title { font-size: 16px; }
+
+    /* Detective */
+    .detective-hero { padding: 14px 16px; gap: 10px; }
+    .detective-industry-badge { width: 40px; height: 40px; font-size: 22px; }
+    .detective-industry { font-size: 16px; }
+    .detective-questions, .detective-goals { padding: 12px 14px; }
   }
 
-  @media (min-width: 769px) {
-    .mobile-panel-fab { display: none !important; }
+  /* ── SMALL PHONES (<=480px) ────────────────────────────── */
+  @media (max-width: 480px) {
+    .kpi-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .kpi-card  { padding: 12px; }
+    .kpi-value { font-size: 20px; }
+    .topnav { padding-left: 120px; }
+    /* Tab: icon-only */
+    .tab-btn { padding: 0 8px; font-size: 0; gap: 0; }
+    .tab-btn svg { width: 16px; height: 16px; }
+    .hint-chip { font-size: 10.5px; padding: 3px 7px; }
+    .cb-chart-type-grid { grid-template-columns: repeat(3, 1fr); }
+    .result-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .result-tab  { white-space: nowrap; flex-shrink: 0; }
+    .form-row { flex-direction: column; }
+    .wf-row   { flex-direction: column; }
+    .pivot-controls { flex-direction: column; align-items: stretch; }
+    .freq-pills { justify-content: flex-start; }
+    .share-bar  { flex-direction: column; gap: 6px; align-items: stretch; }
+    .share-link { font-size: 10px; }
   }
-
-  /* Mobile FAB button */
-  .mobile-panel-fab {
-    display: none;
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 999;
-    width: 52px; height: 52px;
-    border-radius: 50%;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    cursor: pointer;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 16px rgba(37,99,235,.4);
-    font-size: 20px;
-    transition: transform .15s, box-shadow .15s;
-  }
-  .mobile-panel-fab:active { transform: scale(.92); box-shadow: 0 2px 8px rgba(37,99,235,.3); }
-
-  /* Mobile top bar for panel pages — shows when panel is collapsed */
-  .mobile-panel-bar {
-    display: none;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  @media (max-width: 768px) {
-    .panel-collapsed .mobile-panel-bar { display: flex; }
-  }
-  .mobile-panel-bar-label {
-    font-size: 12px; font-weight: 600; color: var(--ink-2); flex: 1;
-  }
-  .mobile-panel-bar-btn {
-    background: var(--accent); color: #fff; border: none;
-    border-radius: 8px; padding: 5px 12px; font-size: 12px;
-    font-weight: 600; cursor: pointer;
-  }
-
 </style>
 </head>
 <body>
@@ -1491,34 +1461,11 @@
 
     <!-- ══ CHART BUILDER PAGE ══ -->
     <div class="page" id="page-chartbuilder">
-      <div class="cb-layout" id="cb-layout">
-
-        <!-- Desktop side toggle button -->
-        <button class="panel-toggle-btn" id="cb-toggle-btn"
-                onclick="togglePanel('cb')" title="Toggle settings panel (shortcut: [)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-
-        <!-- Collapsed re-open strip (desktop) -->
-        <div class="panel-reopen-strip" onclick="togglePanel('cb')" title="Open settings">
-          ⚙️ Settings
-        </div>
+      <div class="cb-layout">
 
         <!-- ── LEFT CONTROLS PANEL ── -->
-        <div class="cb-controls" id="cb-controls">
-
-          <!-- Mobile bar shown when panel is collapsed -->
-          <div class="mobile-panel-bar">
-            <span class="mobile-panel-bar-label">⚙️ Chart Settings</span>
-            <button class="mobile-panel-bar-btn" onclick="togglePanel('cb')">Show Settings ↑</button>
-          </div>
-
-          <div class="cb-controls-title" style="display:flex;align-items:center;justify-content:space-between">
-            <span>⚙️ Chart Settings</span>
-            <button class="panel-close-btn" onclick="togglePanel('cb')" title="Collapse (shortcut: [)">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Hide
-            </button>
-          </div>
+        <div class="cb-controls">
+          <div class="cb-controls-title">⚙️ Chart Settings</div>
 
           <div class="cb-group">
             <label class="cb-label">Table</label>
@@ -1594,17 +1541,6 @@
 
         <!-- ── RIGHT CHART PANEL ── -->
         <div class="cb-canvas">
-          <!-- Mobile: show-settings bar (visible when panel collapsed on mobile) -->
-          <div style="display:none" id="cb-show-bar"
-               style="background:var(--surface-2);border-bottom:1px solid var(--border);
-                      padding:8px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0">
-            <span style="font-size:12px;color:var(--ink-2);flex:1">⚙️ Chart Settings hidden</span>
-            <button onclick="togglePanel('cb')"
-                    style="background:var(--accent);color:#fff;border:none;border-radius:8px;
-                           padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">
-              ↑ Show Settings
-            </button>
-          </div>
           <div class="cb-canvas-header" id="cb-canvas-header" style="display:none">
             <div class="cb-canvas-title" id="cb-canvas-title"></div>
             <div style="display:flex;gap:8px;margin-left:auto">
@@ -1627,28 +1563,10 @@
 
     <!-- ══ DATA CLEANER PAGE ══ -->
     <div class="page" id="page-cleaner">
-      <div class="clean-layout" id="clean-layout">
-
-        <!-- Desktop side toggle -->
-        <button class="panel-toggle-btn" id="clean-toggle-btn"
-                onclick="togglePanel('clean')" title="Toggle issues panel (shortcut: ])">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <div class="panel-reopen-strip" onclick="togglePanel('clean')" title="Open issues panel">
-          🔍 Issues
-        </div>
+      <div class="clean-layout">
 
         <!-- ── LEFT: Issue panel ── -->
-        <div class="clean-left" id="clean-left">
-
-          <div style="display:flex;align-items:center;justify-content:space-between;
-                      padding:8px 12px 0;flex-shrink:0">
-            <span style="font-size:12px;font-weight:700;color:var(--ink)">🔍 Data Issues</span>
-            <button class="panel-close-btn" onclick="togglePanel('clean')" title="Collapse (])">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Hide
-            </button>
-          </div>
-
+        <div class="clean-left">
           <!-- Table selector -->
           <div class="clean-table-sel">
             <div class="select-wrap" style="flex:1">
@@ -1690,17 +1608,6 @@
 
         <!-- ── RIGHT: Preview panel ── -->
         <div class="clean-right" id="clean-right">
-          <!-- Mobile show-panel bar -->
-          <div id="clean-show-bar"
-               style="display:none;background:var(--surface-2);border-bottom:1px solid var(--border);
-                      padding:8px 14px;align-items:center;gap:8px;flex-shrink:0">
-            <span style="font-size:12px;color:var(--ink-2);flex:1">🔍 Issues panel hidden</span>
-            <button onclick="togglePanel('clean')"
-                    style="background:var(--accent);color:#fff;border:none;border-radius:8px;
-                           padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">
-              ↑ Show Issues
-            </button>
-          </div>
           <div class="empty-state" id="clean-right-empty" style="height:100%;justify-content:center">
             <div class="empty-icon" style="font-size:40px">✨</div>
             <div class="empty-title">Cleaned data preview</div>
@@ -1728,26 +1635,11 @@
 
     <!-- ══ WATCHDOG ALERTS PAGE ══ -->
     <div class="page" id="page-watchdog">
-      <div class="watchdog-layout" id="wd-layout">
-
-        <!-- Desktop side toggle -->
-        <button class="panel-toggle-btn" id="wd-toggle-btn"
-                onclick="togglePanel('wd')" title="Toggle alerts list">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <div class="panel-reopen-strip" onclick="togglePanel('wd')" title="Open alerts list">
-          🔔 Alerts
-        </div>
-
+      <div class="watchdog-layout">
         <!-- LEFT: Alert list -->
-        <div class="watchdog-left" id="wd-left">
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 0;flex-shrink:0">
-            <span style="font-size:12px;font-weight:700;color:var(--ink)">🔔 Active Alerts</span>
-            <button class="panel-close-btn" onclick="togglePanel('wd')" title="Collapse">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Hide
-            </button>
-          </div>
+        <div class="watchdog-left">
           <div class="watchdog-section-head">
+            <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:2px">🔔 Active Alerts</div>
             <div style="font-size:11.5px;color:var(--ink-3)">Click Run to check now. Triggered alerts send email.</div>
           </div>
           <div class="watchdog-list" id="watchdog-list">
@@ -1762,18 +1654,7 @@
           </div>
         </div>
         <!-- RIGHT: Create form -->
-        <div class="watchdog-right" id="wd-right">
-          <!-- Mobile show-panel bar -->
-          <div id="wd-show-bar"
-               style="display:none;background:var(--surface-2);border-bottom:1px solid var(--border);
-                      padding:8px 14px;align-items:center;gap:8px;flex-shrink:0">
-            <span style="font-size:12px;color:var(--ink-2);flex:1">🔔 Alerts panel hidden</span>
-            <button onclick="togglePanel('wd')"
-                    style="background:var(--accent);color:#fff;border:none;border-radius:8px;
-                           padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">
-              ↑ Show Alerts
-            </button>
-          </div>
+        <div class="watchdog-right">
           <div class="watchdog-form">
             <div class="watchdog-form-title">🔔 Create Watchdog Alert</div>
             <div class="wf-row">
@@ -2426,7 +2307,6 @@ html.dark .quick-send-card { background: rgba(37,99,235,.1); }
   width: 264px; flex-shrink: 0; overflow-y: auto;
   background: var(--surface); border-right: 1px solid var(--border);
   padding: 16px 14px; display: flex; flex-direction: column; gap: 14px;
-  transition: width .28s cubic-bezier(.4,0,.2,1), padding .28s, opacity .2s, min-width .28s;
 }
 .cb-controls-title { font-size: 13px; font-weight: 700; color: var(--ink); }
 .cb-canvas {
@@ -2549,12 +2429,11 @@ html.dark .quick-send-card { background: rgba(37,99,235,.1); }
 html.dark .reasoning-step { background: rgba(124,58,237,.12); }
 
 /* ── Feature 2: Watchdog Alerts ── */
-.watchdog-layout { display:flex; height:100%; overflow:hidden; }
+.watchdog-layout { display:flex; height:100%; min-height:0; overflow:hidden; }
 .watchdog-left {
   width: 340px; flex-shrink:0; overflow-y:auto;
   border-right: 1px solid var(--border); background: var(--surface);
   display: flex; flex-direction: column;
-  transition: width .28s cubic-bezier(.4,0,.2,1), padding .28s, opacity .2s, min-width .28s;
 }
 .watchdog-right { flex:1; overflow-y:auto; padding: 20px 24px; }
 .watchdog-section-head {
@@ -2653,12 +2532,11 @@ html.dark .detective-hero { background:linear-gradient(135deg,rgba(37,99,235,.12
 
 /* ── CLEAN ── (placeholder to keep marker) */
 /* ── DATA CLEANING ── */
-.clean-layout { display:flex; height:100%; overflow:hidden; }
+.clean-layout { display:flex; height:100%; min-height:0; overflow:hidden; }
 .clean-left {
   width: 360px; flex-shrink:0; overflow-y:auto;
   background: var(--surface); border-right: 1px solid var(--border);
   display:flex; flex-direction:column;
-  transition: width .28s cubic-bezier(.4,0,.2,1), padding .28s, opacity .2s, min-width .28s;
 }
 .clean-right { flex:1; overflow-y:auto; padding:20px 24px; }
 .clean-header {
@@ -6335,13 +6213,6 @@ async function cbBuild() {
     document.getElementById('cb-empty').style.display = 'none';
     document.getElementById('cb-data-table-wrap').classList.remove('hidden');
 
-    // ── AUTO-COLLAPSE: always collapse settings panel after a successful build
-    //    so the chart is fully visible on any screen size.
-    //    On desktop the user can reopen with the ‹ button or [ key.
-    if (_panelOpen && _panelOpen.cb) {
-      togglePanel('cb');
-    }
-
   } catch(e) { toast('❌ ' + e.message); }
   finally { btn.disabled = false; btn.textContent = '▶ Build Chart'; }
 }
@@ -6719,11 +6590,6 @@ async function cleanApply() {
     // Warn if write-back failed
     if (d.write_error) {
       setTimeout(() => toast(`⚠️ ${d.write_error}`), 1000);
-    }
-
-    // ── AUTO-COLLAPSE: hide issues panel so cleaned data preview is fully visible
-    if (_panelOpen && _panelOpen.clean) {
-      togglePanel('clean');
     }
 
   } catch(e) {
@@ -7234,34 +7100,77 @@ function useDetectiveQuestion(q) {
 init();
 initDashboardGoalChips();
 
-// ── Sidebar collapse / expand ─────────────────────────────
+// ── Sidebar toggle — desktop collapse vs mobile drawer ──────
+function isMobile() { return window.innerWidth <= 768; }
+
 function toggleSidebar() {
-  const collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
-  localStorage.setItem('qm_sidebar_collapsed', collapsed ? '1' : '0');
-  // Flip the chevron icon direction
-  const chev = document.getElementById('sidebar-chevron-left');
-  if (chev) {
-    chev.setAttribute('points', collapsed ? '19 8 21 12 19 16' : '5 8 3 12 5 16');
+  const html = document.documentElement;
+  if (isMobile()) {
+    // Mobile: slide off-canvas drawer in/out
+    const opening = !html.classList.contains('sidebar-open');
+    html.classList.toggle('sidebar-open', opening);
+    document.body.style.overflow = opening ? 'hidden' : '';
+  } else {
+    // Desktop: collapse/expand the sidebar rail
+    const collapsed = html.classList.toggle('sidebar-collapsed');
+    localStorage.setItem('qm_sidebar_collapsed', collapsed ? '1' : '0');
+    const chev = document.getElementById('sidebar-chevron-left');
+    if (chev) chev.setAttribute('points', collapsed ? '19 8 21 12 19 16' : '5 8 3 12 5 16');
   }
-  // Resize any active ECharts instances after transition
+  // Resize ECharts instances after the CSS transition finishes
   setTimeout(() => {
-    document.querySelectorAll('[id$="-echart"],[id="cb-main-chart"],[id="lineage-chart"],[id="lineage-chart"]')
+    document.querySelectorAll('[id$="-echart"],[id="cb-main-chart"],[id="lineage-chart"]')
       .forEach(el => { try { echarts.getInstanceByDom(el)?.resize(); } catch(e){} });
   }, 270);
 }
 
-// Restore saved sidebar state
-if (localStorage.getItem('qm_sidebar_collapsed') === '1') {
+// Close mobile drawer when user taps the dim overlay behind it
+document.addEventListener('click', function(e) {
+  if (!isMobile()) return;
+  if (!document.documentElement.classList.contains('sidebar-open')) return;
+  const sidebar = document.querySelector('.sidebar');
+  if (sidebar && !sidebar.contains(e.target) && !e.target.closest('.sidebar-expand-pill')) {
+    document.documentElement.classList.remove('sidebar-open');
+    document.body.style.overflow = '';
+  }
+});
+
+// Auto-close drawer when a sidebar nav item is tapped on mobile
+document.querySelectorAll('.sidebar-nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (isMobile()) {
+      document.documentElement.classList.remove('sidebar-open');
+      document.body.style.overflow = '';
+    }
+  });
+});
+
+// On window resize, clean up stale drawer/collapse state
+window.addEventListener('resize', () => {
+  const html = document.documentElement;
+  if (!isMobile()) {
+    html.classList.remove('sidebar-open');
+    document.body.style.overflow = '';
+    if (localStorage.getItem('qm_sidebar_collapsed') === '1') {
+      html.classList.add('sidebar-collapsed');
+    }
+  } else {
+    html.classList.remove('sidebar-collapsed');
+  }
+});
+
+// Restore saved collapse state on desktop page load
+if (!isMobile() && localStorage.getItem('qm_sidebar_collapsed') === '1') {
   document.documentElement.classList.add('sidebar-collapsed');
   const chev = document.getElementById('sidebar-chevron-left');
   if (chev) chev.setAttribute('points', '19 8 21 12 19 16');
 }
 
-// Keyboard shortcut: Cmd+B / Ctrl+B
+// Keyboard shortcut Cmd+B / Ctrl+B (desktop only)
 document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
     e.preventDefault();
-    toggleSidebar();
+    if (!isMobile()) toggleSidebar();
   }
 });
 
@@ -7283,66 +7192,6 @@ document.getElementById('query-input').addEventListener('input', function() { au
     } catch(e) {}
   }
 })();
-
-// ═══════════════════════════════════════════════════════════════
-//  PANEL TOGGLE SYSTEM
-//  Works for: Chart Builder (cb), Data Cleaner (clean), Watchdog (wd)
-//  Desktop: collapses left panel to 0 width with smooth transition
-//  Mobile:  collapses panel to max-height:0 (slide up/down)
-// ═══════════════════════════════════════════════════════════════
-
-const _panelOpen = { cb: true, clean: true, wd: true };
-
-const _panelLayoutId = { cb: 'cb-layout', clean: 'clean-layout', wd: 'wd-layout' };
-const _panelShowBarId = { cb: 'cb-show-bar', clean: 'clean-show-bar', wd: 'wd-show-bar' };
-
-function togglePanel(panel) {
-  const layout = document.getElementById(_panelLayoutId[panel]);
-  if (!layout) return;
-
-  _panelOpen[panel] = !_panelOpen[panel];
-
-  if (_panelOpen[panel]) {
-    layout.classList.remove('panel-collapsed');
-  } else {
-    layout.classList.add('panel-collapsed');
-  }
-
-  // Show / hide the "↑ Show Settings" bar in the right panel
-  const showBar = document.getElementById(_panelShowBarId[panel]);
-  if (showBar) {
-    showBar.style.display = _panelOpen[panel] ? 'none' : 'flex';
-  }
-
-  // Resize ECharts after transition so chart fills the new width
-  setTimeout(() => {
-    document.querySelectorAll('[id$="-echart"],[id="cb-main-chart"]').forEach(el => {
-      const inst = typeof echarts !== 'undefined' ? echarts.getInstanceByDom(el) : null;
-      if (inst) inst.resize();
-    });
-  }, 300);
-}
-
-// cbBuild auto-collapse is handled directly inside cbBuild() above.
-// cleanApply auto-collapse handled below via direct edit.
-
-// Keyboard shortcuts (desktop only)
-document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'
-      || e.target.tagName === 'SELECT' || e.isComposing) return;
-  if (e.key === '[')  togglePanel('cb');
-  if (e.key === ']')  togglePanel('clean');
-  if (e.key === '\\') togglePanel('wd');
-});
-
-// Re-resize charts on window resize
-window.addEventListener('resize', () => {
-  document.querySelectorAll('[id$="-echart"],[id="cb-main-chart"]').forEach(el => {
-    const inst = typeof echarts !== 'undefined' ? echarts.getInstanceByDom(el) : null;
-    if (inst) inst.resize();
-  });
-});
-
 </script>
 </body>
 </html>
