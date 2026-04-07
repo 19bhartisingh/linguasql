@@ -2258,6 +2258,12 @@ async def send_report_now(req: SendNowRequest):
     }
 
 
+class ShareRequest(BaseModel):
+    question: str          = ""
+    sql:      str          = ""
+    columns:  List[str]    = []
+    rows:     List[Dict]   = []
+    db_name:  str          = ""
 
 
 
