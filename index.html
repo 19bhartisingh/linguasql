@@ -368,20 +368,83 @@
   /* ── TOP NAV ── */
   .topnav {
     background: var(--surface); border-bottom: 1px solid var(--border);
-    padding: 0 24px; display: flex; align-items: center; gap: 0;
-    height: 48px; flex-shrink: 0;
+    padding: 0 16px; display: flex; align-items: center; gap: 0;
+    height: 48px; flex-shrink: 0; position: relative;
   }
+  /* Scrollable tab strip */
+  .topnav-tabs {
+    display: flex; align-items: center; flex: 1; overflow-x: auto; min-width: 0;
+    scrollbar-width: none; -ms-overflow-style: none;
+  }
+  .topnav-tabs::-webkit-scrollbar { display: none; }
   .tab-btn {
-    display: flex; align-items: center; gap: 6px; padding: 0 16px; height: 48px;
+    display: flex; align-items: center; gap: 6px; padding: 0 14px; height: 48px;
     font-size: 13px; font-weight: 500; color: var(--ink-3); background: none;
     border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
-    white-space: nowrap;
+    white-space: nowrap; flex-shrink: 0;
   }
   .tab-btn:hover { color: var(--ink); }
   .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
   .tab-btn svg { width: 14px; height: 14px; }
 
-  .topnav-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  /* Mobile hamburger button */
+  .mobile-menu-btn {
+    display: none; width: 36px; height: 36px; border-radius: 9px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer;
+    color: var(--ink-2); transition: background .15s; margin-right: 8px;
+  }
+  .mobile-menu-btn:hover { background: var(--border); }
+  .mobile-menu-btn svg { width: 16px; height: 16px; }
+
+  /* Mobile nav drawer */
+  .mobile-nav-drawer {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 300; background: rgba(0,0,0,.4); backdrop-filter: blur(2px);
+  }
+  .mobile-nav-drawer.open { display: flex; }
+  .mobile-nav-panel {
+    width: 260px; background: var(--surface); height: 100%; overflow-y: auto;
+    display: flex; flex-direction: column; box-shadow: var(--shadow-lg);
+    animation: slideInLeft .2s ease;
+  }
+  @keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+  .mobile-nav-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 16px 12px; border-bottom: 1px solid var(--border);
+  }
+  .mobile-nav-close {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--surface-2);
+    border: 1px solid var(--border); cursor: pointer; display: flex;
+    align-items: center; justify-content: center; color: var(--ink-3);
+  }
+  .mobile-nav-items { padding: 10px 10px; display: flex; flex-direction: column; gap: 3px; }
+  .mobile-nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    border-radius: 10px; font-size: 14px; font-weight: 500; color: var(--ink-2);
+    background: none; width: 100%; text-align: left; cursor: pointer; transition: background .15s;
+  }
+  .mobile-nav-item:hover { background: var(--surface-2); color: var(--ink); }
+  .mobile-nav-item.active { background: var(--accent-bg); color: var(--accent); }
+  .mobile-nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .7; }
+  .mobile-nav-item.active svg { opacity: 1; }
+
+  .topnav-right { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+
+  /* Responsive topnav */
+  @media (max-width: 640px) {
+    .topnav { padding: 0 10px; }
+    .mobile-menu-btn { display: flex; }
+    .topnav-tabs { display: none; }
+    .tab-btn { padding: 0 10px; font-size: 12px; }
+    .provider-pill { display: none; }
+    html.sidebar-collapsed .topnav { padding-left: 10px; }
+  }
+  @media (max-width: 900px) and (min-width: 641px) {
+    .topnav { padding: 0 8px; }
+    .tab-btn { padding: 0 10px; font-size: 12px; gap: 4px; }
+    .tab-btn svg { width: 13px; height: 13px; }
+  }
   .badge {
     display: inline-flex; align-items: center; gap: 4px;
     font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 99px;
@@ -1033,25 +1096,36 @@
 
     <!-- Top nav tabs — only the 3 most-used tabs here; all features also in sidebar -->
     <nav class="topnav">
-      <button class="tab-btn active" onclick="switchTab('query')" id="tab-query">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        Query
+      <!-- Mobile hamburger (only shows on small screens) -->
+      <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="openMobileNav()" aria-label="Open menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
       </button>
-      <button class="tab-btn" onclick="switchTab('dashboard')" id="tab-dashboard">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        Dashboard
-      </button>
-      <button class="tab-btn" onclick="switchTab('chartbuilder')" id="tab-chartbuilder">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Charts
-      </button>
-      <!-- Hidden tab targets (activated from sidebar, not shown in topnav) -->
-      <button class="tab-btn" id="tab-profile"     style="display:none" onclick="switchTab('profile')"></button>
-      <button class="tab-btn" id="tab-history"     style="display:none" onclick="switchTab('history')"></button>
-      <button class="tab-btn" id="tab-docs"        style="display:none" onclick="switchTab('docs')"></button>
-      <button class="tab-btn" id="tab-cleaner"     style="display:none" onclick="switchTab('cleaner')"></button>
-      <button class="tab-btn" id="tab-watchdog"    style="display:none" onclick="switchTab('watchdog')"></button>
-      <button class="tab-btn" id="tab-lineage"     style="display:none" onclick="switchTab('lineage')"></button>
+
+      <!-- Scrollable tab strip -->
+      <div class="topnav-tabs" id="topnav-tabs">
+        <button class="tab-btn active" onclick="switchTab('query')" id="tab-query">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Query
+        </button>
+        <button class="tab-btn" onclick="switchTab('dashboard')" id="tab-dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </button>
+        <button class="tab-btn" onclick="switchTab('chartbuilder')" id="tab-chartbuilder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Charts
+        </button>
+        <!-- Hidden tab targets (activated from sidebar or mobile nav) -->
+        <button class="tab-btn" id="tab-profile"  style="display:none" onclick="switchTab('profile')"></button>
+        <button class="tab-btn" id="tab-history"  style="display:none" onclick="switchTab('history')"></button>
+        <button class="tab-btn" id="tab-docs"     style="display:none" onclick="switchTab('docs')"></button>
+        <button class="tab-btn" id="tab-cleaner"  style="display:none" onclick="switchTab('cleaner')"></button>
+        <button class="tab-btn" id="tab-watchdog" style="display:none" onclick="switchTab('watchdog')"></button>
+        <button class="tab-btn" id="tab-lineage"  style="display:none" onclick="switchTab('lineage')"></button>
+      </div>
+
       <div class="topnav-right">
         <span id="cache-badge" class="badge badge-grey hidden">⚡ Cached</span>
         <!-- Logged-in pill (shown when authenticated) -->
@@ -1246,10 +1320,17 @@
 
     <!-- ══ CHART BUILDER PAGE ══ -->
     <div class="page" id="page-chartbuilder">
-      <div class="cb-layout">
+      <div class="cb-layout" id="cb-layout">
+
+        <!-- ── SIDEBAR TOGGLE ── -->
+        <button class="cb-sidebar-toggle" id="cb-sidebar-toggle" onclick="cbToggleSidebar()" title="Toggle chart settings panel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
 
         <!-- ── LEFT CONTROLS PANEL ── -->
-        <div class="cb-controls">
+        <div class="cb-controls" id="cb-controls">
           <div class="cb-controls-title">⚙️ Chart Settings</div>
 
           <div class="cb-group">
@@ -1421,25 +1502,38 @@
     <!-- ══ WATCHDOG ALERTS PAGE ══ -->
     <div class="page" id="page-watchdog">
       <div class="watchdog-layout">
-        <!-- LEFT: Alert list -->
-        <div class="watchdog-left">
-          <div class="watchdog-section-head">
-            <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:2px">🔔 Active Alerts</div>
-            <div style="font-size:11.5px;color:var(--ink-3)">Click Run to check now. Triggered alerts send email.</div>
-          </div>
-          <div class="watchdog-list" id="watchdog-list">
-            <div class="empty-state" style="padding:28px 0" id="watchdog-empty">
-              <div class="empty-icon">🔔</div>
-              <div class="empty-title">No alerts yet</div>
-              <div class="empty-sub">Create an alert on the right to monitor your data automatically.</div>
+        <div class="watchdog-top">
+          <!-- LEFT column: Active Alerts (resizable) + form below -->
+          <div class="watchdog-left" id="watchdog-left-col">
+
+            <!-- Active Alerts section — resizable -->
+            <div class="watchdog-active-section" id="watchdog-active-section" style="height:320px">
+              <div class="watchdog-section-head">
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <div style="font-size:13px;font-weight:700;color:var(--ink)">🔔 Active Alerts</div>
+                  <span id="wd-alert-count" style="font-size:10px;padding:2px 7px;border-radius:99px;background:var(--surface-2);color:var(--ink-3)">0 alerts</span>
+                </div>
+                <div style="font-size:11.5px;color:var(--ink-3);margin-top:2px">Drag ↕ to resize. Triggered alerts send email.</div>
+              </div>
+              <div class="watchdog-alerts-body watchdog-list" id="watchdog-list">
+                <div class="empty-state" style="padding:28px 0" id="watchdog-empty">
+                  <div class="empty-icon">🔔</div>
+                  <div class="empty-title">No alerts yet</div>
+                  <div class="empty-sub">Create an alert on the right to monitor your data automatically.</div>
+                </div>
+              </div>
+              <div style="padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0">
+                <button class="btn-sm btn-ghost" style="width:100%" onclick="loadWatchdogs()">↺ Refresh Alerts</button>
+              </div>
             </div>
+
+            <!-- Resize handle -->
+            <div class="watchdog-resize-handle" id="watchdog-resize-handle" title="Drag to resize alert panel"></div>
+
           </div>
-          <div style="padding:12px;border-top:1px solid var(--border)">
-            <button class="btn-sm btn-ghost" style="width:100%" onclick="loadWatchdogs()">↺ Refresh</button>
-          </div>
-        </div>
-        <!-- RIGHT: Create form -->
-        <div class="watchdog-right">
+
+          <!-- RIGHT: Create form -->
+          <div class="watchdog-right">
           <div class="watchdog-form">
             <div class="watchdog-form-title">🔔 Create Watchdog Alert</div>
             <div class="wf-row">
@@ -1509,10 +1603,10 @@
               4. When triggered, sends you an email alert with the actual value<br>
               5. You can also click <b>Run Now</b> to check instantly
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
+          </div><!-- /watchdog-right -->
+        </div><!-- /watchdog-top -->
+      </div><!-- /watchdog-layout -->
+    </div><!-- /page-watchdog -->
 
     <!-- ══ QUERY DNA LINEAGE PAGE ══ -->
     <div class="page" id="page-lineage">
@@ -2086,14 +2180,124 @@ html.dark .quick-send-card { background: rgba(37,99,235,.1); }
 
 /* ── CHART BUILDER ── */
 .cb-layout {
-  display: flex; height: 100%; overflow: hidden;
+  display: flex; height: 100%; overflow: hidden; position: relative;
+  flex-direction: row;
 }
+
+/* ── Chart builder sidebar toggle button ── */
+.cb-sidebar-toggle {
+  /* Sits flush on the right edge of the controls panel, vertically centred */
+  position: absolute;
+  left: 264px;          /* matches cb-controls width */
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  width: 18px; height: 44px;
+  border-radius: 0 8px 8px 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--ink-2);
+  transition: left .25s cubic-bezier(.4,0,.2,1), background .15s, color .15s;
+  flex-shrink: 0;
+  box-shadow: 2px 0 6px rgba(0,0,0,.07);
+}
+.cb-sidebar-toggle:hover {
+  background: var(--accent-bg); color: var(--accent); border-color: var(--accent);
+}
+.cb-sidebar-toggle svg {
+  width: 12px; height: 12px;
+  transition: transform .25s cubic-bezier(.4,0,.2,1);
+  flex-shrink: 0;
+}
+
+/* Collapsed state — desktop */
+.cb-layout.cb-sidebar-hidden .cb-controls {
+  width: 0 !important; padding: 0 !important;
+  overflow: hidden; border-right: none;
+  opacity: 0; pointer-events: none;
+}
+.cb-layout.cb-sidebar-hidden .cb-sidebar-toggle {
+  left: 0;
+  border-radius: 0 8px 8px 0;
+  border-left: none;
+}
+.cb-layout.cb-sidebar-hidden .cb-sidebar-toggle svg {
+  transform: rotate(180deg);
+}
+
 .cb-controls {
   width: 264px; flex-shrink: 0; overflow-y: auto;
   background: var(--surface); border-right: 1px solid var(--border);
   padding: 16px 14px; display: flex; flex-direction: column; gap: 14px;
+  transition: width .25s cubic-bezier(.4,0,.2,1),
+              padding .25s cubic-bezier(.4,0,.2,1),
+              opacity .2s, border-color .25s;
 }
-.cb-controls-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+.cb-controls-title {
+  font-size: 13px; font-weight: 700; color: var(--ink);
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* ── Mobile: stack vertically, toggle becomes a top bar button ── */
+@media (max-width: 640px) {
+  .cb-layout {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  /* On mobile the toggle floats as a full-width bar at the top of the page */
+  .cb-sidebar-toggle {
+    position: static;
+    transform: none;
+    width: 100%; height: 36px;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-left: 1px solid var(--border);
+    order: -1;                /* always first in flex column */
+    justify-content: center;
+    gap: 6px;
+    font-size: 12px; font-weight: 600;
+    color: var(--ink-2);
+    background: var(--surface-2);
+    box-shadow: none;
+    padding: 0 12px;
+  }
+  .cb-sidebar-toggle::before {
+    content: '⚙️ Chart Settings';
+    font-size: 12px; font-weight: 600;
+  }
+  .cb-sidebar-toggle:hover {
+    background: var(--accent-bg); color: var(--accent);
+  }
+  /* When collapsed on mobile, hide the controls panel */
+  .cb-layout.cb-sidebar-hidden .cb-controls {
+    display: none;
+  }
+  .cb-layout.cb-sidebar-hidden .cb-sidebar-toggle {
+    left: auto; border-left: 1px solid var(--border);
+    border-radius: 0;
+  }
+  /* Arrow rotates down when expanded, right when collapsed */
+  .cb-sidebar-toggle svg {
+    transform: rotate(90deg);   /* pointing down = "panel is open below" */
+  }
+  .cb-layout.cb-sidebar-hidden .cb-sidebar-toggle svg {
+    transform: rotate(-90deg);  /* pointing up = "panel is hidden" */
+  }
+  .cb-controls {
+    width: 100% !important;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+  .cb-canvas {
+    padding: 12px;
+    min-height: 300px;
+  }
+}
 .cb-canvas {
   flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 20px;
 }
@@ -2214,11 +2418,35 @@ html.dark .quick-send-card { background: rgba(37,99,235,.1); }
 html.dark .reasoning-step { background: rgba(124,58,237,.12); }
 
 /* ── Feature 2: Watchdog Alerts ── */
-.watchdog-layout { display:flex; height:100%; overflow:hidden; }
-.watchdog-left {
-  width: 340px; flex-shrink:0; overflow-y:auto;
-  border-right: 1px solid var(--border); background: var(--surface);
+.watchdog-layout { display:flex; height:100%; overflow:hidden; flex-direction:column; }
+.watchdog-top {
+  display: flex; overflow: hidden; flex: 1; min-height: 0;
+}
+.watchdog-active-section {
   display: flex; flex-direction: column;
+  width: 340px; flex-shrink: 0;
+  border-right: 1px solid var(--border); background: var(--surface);
+  min-height: 120px; max-height: 100%;
+  transition: height .2s ease;
+}
+/* Active alerts area height is controlled by the resize handle */
+.watchdog-alerts-body {
+  flex: 1; overflow-y: auto; min-height: 0;
+}
+.watchdog-resize-handle {
+  height: 5px; background: var(--border); cursor: ns-resize; flex-shrink: 0;
+  transition: background .15s; display: flex; align-items: center; justify-content: center;
+  position: relative; border-top: 1px solid var(--border-2);
+}
+.watchdog-resize-handle:hover { background: var(--accent); }
+.watchdog-resize-handle::after {
+  content: ''; display: block; width: 30px; height: 2px;
+  border-radius: 99px; background: var(--ink-3); opacity: .4;
+}
+.watchdog-left {
+  display: flex; flex-direction: column; overflow: hidden;
+  width: 340px; flex-shrink: 0;
+  border-right: 1px solid var(--border); background: var(--surface);
 }
 .watchdog-right { flex:1; overflow-y:auto; padding: 20px 24px; }
 .watchdog-section-head {
@@ -6519,6 +6747,8 @@ async function loadWatchdogs() {
 function renderWatchdogs(alerts) {
   const list  = document.getElementById('watchdog-list');
   const empty = document.getElementById('watchdog-empty');
+  const countEl = document.getElementById('wd-alert-count');
+  if (countEl) countEl.textContent = alerts.length + ' alert' + (alerts.length !== 1 ? 's' : '');
   if (!alerts.length) {
     if (empty) empty.style.display = '';
     list.innerHTML = '';
@@ -6879,10 +7109,155 @@ function useDetectiveQuestion(q) {
   input.focus();
 }
 
-// ════════════════════════════════════════════════════════
-//  BOOT
-// ════════════════════════════════════════════════════════
-init();
+// ── Mobile Nav Drawer ─────────────────────────────────────
+function openMobileNav() {
+  document.getElementById('mobile-nav-drawer').classList.add('open');
+}
+function closeMobileNav() {
+  document.getElementById('mobile-nav-drawer').classList.remove('open');
+}
+function mobileNavSwitch(tab) {
+  closeMobileNav();
+  switchTab(tab);
+  // Update mobile nav item active state
+  document.querySelectorAll('.mobile-nav-item').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+}
+
+// ── Chart Builder Sidebar Toggle ─────────────────────────
+function cbToggleSidebar() {
+  const layout  = document.getElementById('cb-layout');
+  const toggle  = document.getElementById('cb-sidebar-toggle');
+  const hidden  = layout.classList.toggle('cb-sidebar-hidden');
+  localStorage.setItem('qm_cb_sidebar', hidden ? '0' : '1');
+
+  // Update tooltip
+  if (toggle) toggle.title = hidden ? 'Show chart settings' : 'Hide chart settings';
+
+  // Resize ECharts after CSS transition finishes
+  setTimeout(() => {
+    const chartEl = document.getElementById('cb-main-chart');
+    if (chartEl) { try { echarts.getInstanceByDom(chartEl)?.resize(); } catch(e){} }
+  }, 280);
+}
+
+// Restore chart sidebar state on load
+// On mobile: default to collapsed so the chart gets full screen
+(function() {
+  const layout  = document.getElementById('cb-layout');
+  if (!layout) return;
+  const isMobile = window.innerWidth <= 640;
+  const saved    = localStorage.getItem('qm_cb_sidebar');
+  if (saved === '0' || (isMobile && saved === null)) {
+    layout.classList.add('cb-sidebar-hidden');
+  }
+})();
+
+// ── Watchdog Resize Handle ───────────────────────────────
+(function() {
+  const handle = document.getElementById('watchdog-resize-handle');
+  const section = document.getElementById('watchdog-active-section');
+  if (!handle || !section) return;
+
+  let dragging = false, startY = 0, startH = 0;
+
+  handle.addEventListener('mousedown', e => {
+    dragging = true;
+    startY = e.clientY;
+    startH = section.getBoundingClientRect().height;
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  handle.addEventListener('touchstart', e => {
+    dragging = true;
+    startY = e.touches[0].clientY;
+    startH = section.getBoundingClientRect().height;
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const delta = e.clientY - startY;
+    const newH = Math.max(100, Math.min(startH + delta, window.innerHeight - 200));
+    section.style.height = newH + 'px';
+  });
+  document.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    const delta = e.touches[0].clientY - startY;
+    const newH = Math.max(100, Math.min(startH + delta, window.innerHeight - 200));
+    section.style.height = newH + 'px';
+  }, { passive: true });
+
+  const stopDrag = () => {
+    if (dragging) {
+      dragging = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  };
+  document.addEventListener('mouseup', stopDrag);
+  document.addEventListener('touchend', stopDrag);
+})();
+</script>
+
+<!-- Mobile Navigation Drawer -->
+<div class="mobile-nav-drawer" id="mobile-nav-drawer" onclick="closeMobileNav()">
+  <div class="mobile-nav-panel" onclick="event.stopPropagation()">
+    <div class="mobile-nav-header">
+      <div class="logo" style="margin:0">
+        <div class="logo-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <span class="logo-name">LinguaSQL</span>
+      </div>
+      <button class="mobile-nav-close" onclick="closeMobileNav()">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="mobile-nav-items">
+      <button class="mobile-nav-item active" data-tab="query" onclick="mobileNavSwitch('query')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Query Assistant
+      </button>
+      <button class="mobile-nav-item" data-tab="dashboard" onclick="mobileNavSwitch('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Text to Dashboard
+      </button>
+      <button class="mobile-nav-item" data-tab="chartbuilder" onclick="mobileNavSwitch('chartbuilder')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Chart Builder
+      </button>
+      <button class="mobile-nav-item" data-tab="profile" onclick="mobileNavSwitch('profile')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        Data Profile
+      </button>
+      <button class="mobile-nav-item" data-tab="history" onclick="mobileNavSwitch('history')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Query History
+      </button>
+      <button class="mobile-nav-item" data-tab="docs" onclick="mobileNavSwitch('docs')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Data Dictionary
+      </button>
+      <button class="mobile-nav-item" data-tab="cleaner" onclick="mobileNavSwitch('cleaner')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 11.08 22 12 12 22 2 12 2.5 6.5 8 6.5"/><polyline points="22 11.08 17 2 12 12 7 2 2.5 6.5"/></svg>
+        Data Cleaner
+      </button>
+      <button class="mobile-nav-item" data-tab="watchdog" onclick="mobileNavSwitch('watchdog')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+        Watchdog Alerts
+      </button>
+      <button class="mobile-nav-item" data-tab="lineage" onclick="mobileNavSwitch('lineage')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
+        Query DNA
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
 initDashboardGoalChips();
 
 // ── Sidebar collapse / expand ─────────────────────────────
