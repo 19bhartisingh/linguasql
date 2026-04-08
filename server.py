@@ -2374,17 +2374,16 @@ def _make_serialisable(rows: list) -> list:
 
 if __name__ == "__main__":
     import uvicorn
-    port     = int(os.environ.get("PORT", 8000))
-    is_prod  = os.environ.get("FLY_APP_NAME") or os.environ.get("RENDER") or os.environ.get("RAILWAY_ENVIRONMENT")
+    port = int(os.environ.get("PORT", 8000))
     print("=" * 54)
     print("  🌐  LinguaSQL v1.0 — Natural Language to SQL")
-    print(f"  🚀  http://0.0.0.0:{port}")
+    print(f"  🚀  Listening on 0.0.0.0:{port}")
     print("=" * 54)
     uvicorn.run(
-        "server:app",
+        app,                  # pass app object directly — avoids module reload issues
         host      = "0.0.0.0",
         port      = port,
-        reload    = False,        # always off in production
+        reload    = False,
         log_level = "info",
-        workers   = 1,            # single worker (SQLite not thread-safe with multiple)
+        workers   = 1,        # single worker (SQLite is not multiprocess-safe)
     )

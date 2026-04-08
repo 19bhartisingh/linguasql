@@ -1,16 +1,14 @@
 # ════════════════════════════════════════════════════
 #  LinguaSQL — Dockerfile
-#  Optimised for Railway, Fly.io, Render
+#  Optimised for Railway, Render, Fly.io
 # ════════════════════════════════════════════════════
 
 FROM python:3.11-slim
 
-# ── System dependencies ───────────────────────────────────────────────────────
+# System deps: libpq for psycopg2, freetype for reportlab, gcc for compilation
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
-    freetds-dev \
-    freetds-bin \
     libpq-dev \
     libfreetype6-dev \
     libffi-dev \
@@ -19,44 +17,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# ── Python dependencies ───────────────────────────────────────────────────────
+# Install Python deps — skip pymssql (needs freetds, optional)
 COPY requirements.txt .
+RUN pip install --no-cache-dir $(grep -v pymssql requirements.txt | grep -v '^#' | grep -v '^$' | tr '\n' ' ') \
+    && pip install --no-cache-dir pymssql==2.3.1 \
+    || echo "WARNING: pymssql unavailable — SQL Server connections disabled"
 
-# Install everything except pymssql first (always succeeds)
-RUN pip install --no-cache-dir $(grep -v pymssql requirements.txt | grep -v '^#' | grep -v '^$' | tr '\n' ' ')
-
-# pymssql separately — failure here won't break the rest of the app
-RUN pip install --no-cache-dir pymssql==2.3.1 || \
-    echo "WARNING: pymssql install failed — MS SQL Server connections unavailable"
-
-# ── Application files ─────────────────────────────────────────────────────────
+# Copy all application files
 COPY . .
 
-# ── Frontend: put index.html where server.py expects it ───────────────────────
-# server.py looks for static/index.html first, then falls back to root index.html
-# This step copies root index.html → static/index.html so both locations work.
+# Put index.html into static/ so FastAPI can find it
 RUN mkdir -p static && \
     if [ -f index.html ]; then \
-        cp index.html static/index.html && \
-        echo "✅ Copied index.html → static/index.html"; \
-    elif [ -f static/index.html ]; then \
-        echo "✅ static/index.html already in place"; \
-    else \
-        echo "❌ WARNING: No index.html found anywhere — UI will return 404"; \
+        cp index.html static/index.html && echo "✅ index.html → static/"; \
     fi
 
-# ── Database directories ──────────────────────────────────────────────────────
+# Create database directories
 RUN mkdir -p databases databases/uploads
 
-# ── Environment ───────────────────────────────────────────────────────────────
-# Do NOT set PORT here — Railway injects it at runtime automatically
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
+# Railway injects PORT at runtime — default to 8000 for local/Dockerfile use
+ENV PORT=8000
 
+# Expose default port (Railway overrides this via PORT env var)
 EXPOSE 8000
 
-# ── Health check ─────────────────────────────────────────────────────────────
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python -c "import urllib.request, os; urllib.request.urlopen('http://localhost:' + os.environ.get('PORT','8000') + '/health')"
+# Health check against the correct endpoint
+HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
+    CMD python -c "import urllib.request, os; urllib.request.urlopen('http://localhost:' + os.environ.get('PORT','8000') + '/api/health')"
 
 CMD ["python", "server.py"]
