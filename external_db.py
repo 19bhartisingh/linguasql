@@ -227,8 +227,8 @@ def _open_mssql(conn_str: str):
             if user and pwd:
                 kwargs["user"]     = user
                 kwargs["password"] = pwd
-            # Windows Auth: omit credentials — pymssql handles it automatically.
-            # Do NOT pass trusted=True — that keyword does not exist in pymssql.
+            else:
+                kwargs["trusted"] = True
             conn = _pymssql.connect(**kwargs)
             return conn, "pymssql (no ODBC needed)"
         except Exception as e:
@@ -287,40 +287,13 @@ def _open_mssql(conn_str: str):
 
     # ── All strategies failed ─────────────────────────────────────────────────
     hints = []
-
-    # Detect local/private hostnames — these are unreachable from cloud deployments
-    _srv_bare = server_full.split("\\")[0].lower()
-    _local_indicators = ["localhost", "127.0.0.1", ".", "(local)"]
-    _is_private_ip = _srv_bare.startswith(("10.", "172.", "192.168."))
-    _is_local_name = (
-        any(ind in _srv_bare for ind in _local_indicators)
-        or (
-            "." not in _srv_bare          # no dots = Windows PC hostname, not a DNS name
-            and not _is_private_ip
-            and _srv_bare not in ("", "localhost")
-        )
-    )
-
-    if _is_local_name or _is_private_ip:
-        hints.append(
-            f"⚠️  CLOUD DEPLOYMENT ISSUE: '{server_full}' appears to be a local PC or "
-            f"private network machine. This app is running on a cloud server which CANNOT "
-            f"reach SQL Server instances on your local computer or private network.\n\n"
-            f"To connect your local SQL Server you have 3 options:\n"
-            f"  1. Use a cloud-hosted SQL Server (Azure SQL, AWS RDS, Supabase, etc.)\n"
-            f"  2. Expose your local SQL Server publicly using ngrok:\n"
-            f"     • Run: ngrok tcp 1433\n"
-            f"     • Use the ngrok host as your server address\n"
-            f"  3. Run LinguaSQL locally (python server.py) — it can reach {server_full} directly"
-        )
-    else:
-        if not _pymssql:
-            hints.append("QUICKEST FIX: pip install pymssql  (no ODBC driver needed)")
-        if not odbc_drv:
-            hints.append("OR install ODBC Driver 17: https://aka.ms/odbc17  then restart LinguaSQL")
+    if not _pymssql:
+        hints.append("QUICKEST FIX: pip install pymssql  (no ODBC driver needed)")
+    if not odbc_drv:
+        hints.append("OR install ODBC Driver 17: https://aka.ms/odbc17  then restart LinguaSQL")
 
     raise ConnectionError(
-        f"Could not connect to SQL Server \'{server_full}/{db}\'.\n"
+        f"Could not connect to SQL Server '{server_full}/{db}'.\n"
         + ("\n".join(hints) + "\n" if hints else "")
         + "\nAttempted:\n" + "\n".join(f"  • {e}" for e in errors)
     )
@@ -393,8 +366,65 @@ def _open_engine(db_type: str, conn_str: str) -> Tuple[Any, str]:
 
 # ── Connection test ───────────────────────────────────────────────────────────
 
+def _is_local_machine(host: str) -> bool:
+    """Return True if the host looks like a local / private-network address."""
+    if not host:
+        return False
+    h = host.lower().split('\\')[0].split(',')[0].strip()
+    local_patterns = [
+        'localhost', '127.', '192.168.', '10.', '172.16.', '172.17.',
+        '172.18.', '172.19.', '172.2', '172.30.', '172.31.',
+        '.local', '.lan', '.home', '.internal',
+    ]
+    # Machine names without dots (e.g. BHARTISINGH, DESKTOP-ABC) are almost always local
+    if '.' not in h and h not in ('', 'localhost'):
+        return True
+    return any(h.startswith(p) or h.endswith(p) for p in local_patterns)
+
+
+def _local_machine_error(server_raw: str) -> str:
+    """Return a helpful error message when a local SQL Server is detected from cloud."""
+    return (
+        f"⚠️ CLOUD DEPLOYMENT ISSUE: '{server_raw}' appears to be a local PC "
+        f"or private network machine. This app is running on a cloud server which "
+        f"CANNOT reach SQL Server instances on your local computer or private network.\n\n"
+        f"To connect your local SQL Server you have 3 options:\n"
+        f"1. Use a cloud-hosted SQL Server (Azure SQL, AWS RDS, Supabase, etc.)\n"
+        f"2. Expose your local SQL Server publicly using ngrok:\n"
+        f"   • Run: ngrok tcp 1433\n"
+        f"   • Use the ngrok host as your server address\n"
+        f"3. Run LinguaSQL locally (python server.py) — "
+        f"it can reach {server_raw} directly"
+    )
+
+
 def test_connection(db_type: str, conn_str: str) -> Tuple[bool, str]:
     """Try to open a connection and run SELECT 1. Returns (success, message)."""
+
+    # ── Pre-flight: detect local machine addresses for MSSQL on cloud ────────
+    dt = db_type.lower().strip()
+    if dt in ("mssql", "sqlserver", "sql_server"):
+        # Extract the server/host from the connection string
+        # Handles both "SERVER\INSTANCE/DB" style and "server=X;database=Y" style
+        server_raw = ""
+        cs = conn_str.strip()
+        if '=' in cs and ';' in cs:
+            # key=value connection string
+            for part in cs.split(';'):
+                k, _, v = part.partition('=')
+                if k.strip().lower() in ('server', 'host', 'data source'):
+                    server_raw = v.strip().split('/')[0].split(',')[0]
+                    break
+        else:
+            # Plain "SERVER\INSTANCE/DB" or "SERVER/DB"
+            server_raw = cs.split('/')[0].split('\\')[0].split(',')[0].strip()
+
+        # Only warn on actual cloud deployments (Railway / Render / Fly)
+        is_cloud = any(os.environ.get(v) for v in
+                       ('RAILWAY_ENVIRONMENT', 'RENDER', 'FLY_APP_NAME', 'RAILWAY_SERVICE_NAME'))
+        if is_cloud and server_raw and _is_local_machine(server_raw):
+            return False, _local_machine_error(server_raw)
+
     try:
         result = _open_engine(db_type, conn_str)
         engine, method = result if isinstance(result, tuple) else (result, "")
@@ -434,7 +464,22 @@ def test_connection(db_type: str, conn_str: str) -> Tuple[bool, str]:
                 "❌ Database not found in SQL Server.\n"
                 "Check the Database Name field — use the exact name from SSMS."
             )
-        if "network-related" in err.lower() or "10061" in err or "10060" in err:
+        if "network-related" in err.lower() or "10061" in err or "10060" in err or \
+                "Unable to connect" in err or "20009" in err or "Adaptive Server" in err:
+            # Check if this looks like a cloud→local connectivity problem
+            is_cloud = any(os.environ.get(v) for v in
+                           ('RAILWAY_ENVIRONMENT', 'RENDER', 'FLY_APP_NAME', 'RAILWAY_SERVICE_NAME'))
+            if is_cloud:
+                # Extract server name from conn_str for the message
+                cs = conn_str.strip()
+                server_raw = cs.split('/')[0].split('\\')[0].split(',')[0].strip()
+                if '=' in cs and ';' in cs:
+                    for part in cs.split(';'):
+                        k, _, v = part.partition('=')
+                        if k.strip().lower() in ('server', 'host', 'data source'):
+                            server_raw = v.strip().split('/')[0].split(',')[0]
+                            break
+                return False, _local_machine_error(server_raw)
             return False, (
                 "❌ Cannot reach SQL Server.\n"
                 "Check: 1) SQL Server service is running  "

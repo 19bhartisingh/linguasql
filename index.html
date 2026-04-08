@@ -2939,15 +2939,26 @@ const state = {
 //  INIT
 // ════════════════════════════════════════════════════════
 async function init() {
+  // ── Default API keys (used when user has not saved their own) ──────────────
+  const DEFAULT_API_KEYS = {
+    groq:   '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',  // shared Groq key
+    gemini: '',
+    openai: '',
+  };
+
   // Restore saved API keys and provider
   try {
     const saved = JSON.parse(localStorage.getItem('qm_api_keys') || '{}');
-    state.apiKeys = saved;
-    const prov = localStorage.getItem('qm_provider') || 'gemini';
-    document.getElementById('provider-select').value = prov;
+    // Merge: user's saved keys take priority; fall back to defaults for missing ones
+    state.apiKeys = Object.assign({}, DEFAULT_API_KEYS, saved);
+    // Default to groq since we provide a key for it
+    const prov = localStorage.getItem('qm_provider') || 'groq';
+    const provSelect = document.getElementById('provider-select');
+    if (provSelect) provSelect.value = prov;
     state.provider = prov;
-    state.apiKey = saved[prov] || '';
-    document.getElementById('api-key-input').value = state.apiKey ? '••••••••' : '';
+    state.apiKey = state.apiKeys[prov] || '';
+    const apiInput = document.getElementById('api-key-input');
+    if (apiInput) apiInput.value = state.apiKey ? '••••••••' : '';
     updateApiKeyVisibility();
   } catch(e) {}
 
@@ -5422,8 +5433,27 @@ function _hideConnStatus() {
 
 function _showConnStatus(msg, isOk) {
   const el = document.getElementById('conn-status');
-  el.textContent = (isOk ? '✅ ' : '❌ ') + msg;
-  el.className   = `conn-status ${isOk ? 'ok' : 'err'}`;
+  el.className = `conn-status ${isOk ? 'ok' : 'err'}`;
+
+  if (!isOk && msg.includes('CLOUD DEPLOYMENT ISSUE')) {
+    // Render the structured cloud-local warning with helpful steps
+    const parts = msg.split('\n').map(l => l.trim()).filter(Boolean);
+    const header = parts[0] || '';
+    const steps  = parts.slice(1);
+    el.innerHTML = `
+      <div style="font-weight:700;margin-bottom:6px">☁️ Cloud → Local Connection Blocked</div>
+      <div style="font-size:12px;line-height:1.6;margin-bottom:10px">${escHtml(header)}</div>
+      <div style="font-size:12px;font-weight:600;margin-bottom:4px">How to fix:</div>
+      <div style="font-size:12px;line-height:1.8">
+        ${steps.map(s => `<div>${escHtml(s)}</div>`).join('')}
+      </div>
+      <div style="margin-top:10px;padding:8px 10px;background:rgba(0,0,0,.06);border-radius:7px;font-size:11.5px">
+        <b>Quickest fix:</b> Run <code style="background:rgba(0,0,0,.1);padding:1px 5px;border-radius:4px">ngrok tcp 1433</code>
+        then use the <code style="background:rgba(0,0,0,.1);padding:1px 5px;border-radius:4px">X.tcp.ngrok.io:PORT</code> address in the Server field.
+      </div>`;
+  } else {
+    el.textContent = (isOk ? '✅ ' : '❌ ') + msg;
+  }
 }
 
 async function testDbConnection() {
