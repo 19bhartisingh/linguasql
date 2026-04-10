@@ -382,24 +382,21 @@ def _is_local_machine(host: str) -> bool:
     return any(h.startswith(p) or h.endswith(p) for p in local_patterns)
 
 
-def _local_machine_error(server_raw: str) -> str:
-    """Return a helpful error message when a local SQL Server is detected from cloud."""
+def _local_machine_warning(server_raw: str) -> str:
+    """Return a helpful WARNING (non-blocking) when a local SQL Server is detected from cloud."""
     return (
-        f"⚠️ CLOUD DEPLOYMENT ISSUE: '{server_raw}' appears to be a local PC "
-        f"or private network machine. This app is running on a cloud server which "
-        f"CANNOT reach SQL Server instances on your local computer or private network.\n\n"
-        f"To connect your local SQL Server you have 3 options:\n"
-        f"1. Use a cloud-hosted SQL Server (Azure SQL, AWS RDS, Supabase, etc.)\n"
-        f"2. Expose your local SQL Server publicly using ngrok:\n"
-        f"   • Run: ngrok tcp 1433\n"
-        f"   • Use the ngrok host as your server address\n"
-        f"3. Run LinguaSQL locally (python server.py) — "
-        f"it can reach {server_raw} directly"
+        f"⚠️ Note: '{server_raw}' looks like a local/private machine. "
+        f"If this is your PC's SQL Server, the cloud app may not reach it directly.\n"
+        f"Options: (1) Use a cloud-hosted SQL (Azure, AWS RDS, etc.) "
+        f"(2) Expose via ngrok tcp 1433 "
+        f"(3) Run LinguaSQL locally with python server.py"
     )
 
 
 def test_connection(db_type: str, conn_str: str) -> Tuple[bool, str]:
     """Try to open a connection and run SELECT 1. Returns (success, message)."""
+
+    _cloud_warn = ""   # may be set below for MSSQL local-machine detection
 
     # ── Pre-flight: detect local machine addresses for MSSQL on cloud ────────
     dt = db_type.lower().strip()
@@ -422,8 +419,10 @@ def test_connection(db_type: str, conn_str: str) -> Tuple[bool, str]:
         # Only warn on actual cloud deployments (Railway / Render / Fly)
         is_cloud = any(os.environ.get(v) for v in
                        ('RAILWAY_ENVIRONMENT', 'RENDER', 'FLY_APP_NAME', 'RAILWAY_SERVICE_NAME'))
+        # On cloud, warn about local addresses but still attempt — user may be using ngrok/tunnel
+        _cloud_warn = ""
         if is_cloud and server_raw and _is_local_machine(server_raw):
-            return False, _local_machine_error(server_raw)
+            _cloud_warn = _local_machine_warning(server_raw)
 
     try:
         result = _open_engine(db_type, conn_str)
@@ -447,7 +446,8 @@ def test_connection(db_type: str, conn_str: str) -> Tuple[bool, str]:
             engine.close()
 
         note = f" via {method}" if method else ""
-        return True, f"✅ Connection successful{note}"
+        warn = f"\n\n{_cloud_warn}" if _cloud_warn else ""
+        return True, f"✅ Connection successful{note}{warn}"
 
     except Exception as e:
         err = str(e)
@@ -479,12 +479,18 @@ def test_connection(db_type: str, conn_str: str) -> Tuple[bool, str]:
                         if k.strip().lower() in ('server', 'host', 'data source'):
                             server_raw = v.strip().split('/')[0].split(',')[0]
                             break
-                return False, _local_machine_error(server_raw)
+                # Still try; surface warning alongside any connection error
+                pass
+            cloud_tip = (
+                f"\n\n{_cloud_warn}\n\nIf using ngrok: run 'ngrok tcp 1433' and use "
+                f"the ngrok hostname (e.g. 0.tcp.ngrok.io:12345) as your server address."
+            ) if _cloud_warn else ""
             return False, (
                 "❌ Cannot reach SQL Server.\n"
-                "Check: 1) SQL Server service is running  "
+                "Check: 1) SQL Server is running  "
                 "2) Server\\Instance name is correct  "
-                "3) TCP/IP enabled in SQL Server Configuration Manager"
+                "3) TCP/IP is enabled in SQL Server Configuration Manager"
+                + cloud_tip
             )
         if "No module named" in err or "ModuleNotFoundError" in err:
             return False, f"❌ Missing driver: {err}\nRun: pip install pymssql"

@@ -170,6 +170,21 @@ META_DB_PATH = os.path.join(_DATA_DIR, "linguasql_meta.db")
 os.makedirs(_DATA_DIR, exist_ok=True)
 os.makedirs(os.path.join(_DATA_DIR, "uploads"), exist_ok=True)
 
+# ── Server-side API key fallback ─────────────────────────────────────────────
+# If the operator sets these env vars, users don't need to enter their own keys.
+_SERVER_API_KEYS: Dict[str, str] = {
+    "gemini":  os.environ.get("GEMINI_API_KEY",  ""),
+    "openai":  os.environ.get("OPENAI_API_KEY",  ""),
+    "groq":    os.environ.get("GROQ_API_KEY",    ""),
+}
+
+def _resolve_api_key(provider: str, user_key: str) -> str:
+    """Return user key if provided, otherwise fall back to server env key."""
+    k = user_key.strip() if user_key else ""
+    if k:
+        return k
+    return _SERVER_API_KEYS.get(provider, "")
+
 
 def _init_meta_db():
     os.makedirs(_DATA_DIR, exist_ok=True)
@@ -837,7 +852,16 @@ async def get_example_queries(db_name: str):
 
 @app.get("/api/providers")
 async def list_providers():
-    return get_provider_status()
+    status = get_provider_status()
+    # Mark providers as available if the server has a key configured,
+    # even when the user hasn't entered one in the browser.
+    providers = status.get("providers", {})
+    for name, server_key in _SERVER_API_KEYS.items():
+        if server_key and name in providers:
+            providers[name]["available"]      = True
+            providers[name]["server_key_set"] = True   # UI can show "key provided by server"
+    status["server_keys"] = {k: bool(v) for k, v in _SERVER_API_KEYS.items()}
+    return status
 
 
 # ─────────────────────────────────────────────────────────
@@ -859,8 +883,20 @@ async def run_natural_language_query(req: QueryRequest,
                                      authorization: Optional[str] = Header(None)):
     if not req.question.strip():
         raise HTTPException(400, "Question cannot be empty")
-    if req.provider not in LOCAL_PROVIDERS and not req.api_key.strip():
-        raise HTTPException(400, f"API key required for '{req.provider}'")
+
+    # Resolve API key: user-supplied key takes priority, then server env key
+    effective_key = _resolve_api_key(req.provider, req.api_key)
+    if req.provider not in LOCAL_PROVIDERS and not effective_key:
+        # Friendly warning instead of hard error — no key available anywhere
+        return {
+            "error": (
+                "⚠️ No API key configured. "
+                "To use LinguaSQL, enter your free Gemini API key in the sidebar "
+                "(get one at aistudio.google.com — it's free). "
+                "Or the site owner can set GEMINI_API_KEY in the server environment."
+            ),
+            "sql": "", "explanation": "", "confidence": 0, "rows": [], "columns": [],
+        }
 
     # Resolve current user (None = anonymous)
     current_user = get_current_user(authorization, META_DB_PATH)
@@ -887,7 +923,7 @@ async def run_natural_language_query(req: QueryRequest,
             question             = req.question,
             schema_text          = schema_text,
             provider             = req.provider,
-            api_key              = req.api_key,
+            api_key              = effective_key,
             model                = req.model,
             conversation_history = req.conversation_history or None,
             retry_on_low_confidence = True,
@@ -1341,7 +1377,8 @@ async def get_schema_summary(req: SchemaSummaryRequest):
         schema_text = schema_to_text(req.db_name)
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
-    summaries = summarize_schema_tables(schema_text, req.provider, req.api_key, req.model)
+    eff_key = _resolve_api_key(req.provider, req.api_key)
+    summaries = summarize_schema_tables(schema_text, req.provider, eff_key, req.model)
     return {"db_name": req.db_name, "summaries": summaries}
 
 
@@ -1362,7 +1399,8 @@ async def explain_sql_step_by_step(req: ExplainRequest):
         schema_text = schema_to_text(req.db_name)
     except Exception:
         schema_text = ""
-    steps = explain_sql_steps(req.sql, schema_text, req.provider, req.api_key, req.model)
+    eff_key = _resolve_api_key(req.provider, req.api_key)
+    steps = explain_sql_steps(req.sql, schema_text, req.provider, eff_key, req.model)
     return {"steps": steps}
 
 
@@ -1383,12 +1421,15 @@ class InsightsRequest(BaseModel):
 async def get_query_insights(req: InsightsRequest):
     if not req.rows or not req.columns:
         return {"insights": []}
+    effective_key = _resolve_api_key(req.provider, req.api_key)
+    if req.provider not in LOCAL_PROVIDERS and not effective_key:
+        return {"insights": [{"emoji": "⚠️", "text": "⚠️ No API key configured. Enter your free Gemini API key in the sidebar (get one at aistudio.google.com). The site owner can also set GEMINI_API_KEY as an environment variable."}]}
     insights = generate_insights(
         question = req.question,
         columns  = req.columns,
         rows     = req.rows,
         provider = req.provider,
-        api_key  = req.api_key,
+        api_key  = effective_key,
         model    = req.model,
     )
     return {"insights": insights}
@@ -1441,8 +1482,9 @@ def _load_docs(db_name: str) -> Optional[Dict]:
 @app.post("/api/docs/generate")
 async def generate_docs(req: GenerateDocsRequest):
     """Generate AI documentation for a database and persist it."""
-    if req.provider not in LOCAL_PROVIDERS and not req.api_key.strip():
-        raise HTTPException(400, "API key required")
+    effective_key = _resolve_api_key(req.provider, req.api_key)
+    if req.provider not in LOCAL_PROVIDERS and not effective_key:
+        raise HTTPException(400, "⚠️ No API key configured. Enter your free Gemini API key in the sidebar (get one at aistudio.google.com). The site owner can also set GEMINI_API_KEY as an environment variable.")
     try:
         schema_dict = get_schema(req.db_name)
     except FileNotFoundError as e:
@@ -1463,7 +1505,7 @@ async def generate_docs(req: GenerateDocsRequest):
             schema_dict = schema_dict,
             sample_data = sample_data,
             provider    = req.provider,
-            api_key     = req.api_key,
+            api_key     = effective_key,
             model       = req.model,
         )
     except Exception as e:
@@ -1529,11 +1571,14 @@ async def get_reasoning_trace(req: ReasoningTraceRequest):
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
 
+    effective_key = _resolve_api_key(req.provider, req.api_key)
+    if req.provider not in LOCAL_PROVIDERS and not effective_key:
+        return {"question": req.question, "trace": []}
     trace = generate_reasoning_trace(
         question    = req.question,
         schema_text = schema_text,
         provider    = req.provider,
-        api_key     = req.api_key,
+        api_key     = effective_key,
         model       = req.model,
     )
     return {"question": req.question, "trace": trace}
@@ -1721,11 +1766,12 @@ IMPORTANT:
 """
 
     try:
+        effective_key = _resolve_api_key(req.provider, req.api_key)
         sql, _, _, _ = natural_language_to_sql(
             question    = watchdog_prompt,
             schema_text = schema_text,
             provider    = req.provider,
-            api_key     = req.api_key,
+            api_key     = effective_key,
             db_name     = req.db_name,
         )
         # Strip any LIMIT that was added (watchdog needs full count)
@@ -1903,10 +1949,11 @@ async def schema_detective(req: SchemaDetectiveRequest):
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
 
+    effective_key = _resolve_api_key(req.provider, req.api_key)
     result = detect_schema_industry(
         schema_text = schema_text,
         provider    = req.provider,
-        api_key     = req.api_key,
+        api_key     = effective_key,
         model       = req.model,
     )
     if not result:
@@ -2229,8 +2276,9 @@ async def send_report_now(req: SendNowRequest):
         raise HTTPException(400, "At least one recipient email is required")
     if not req.question.strip():
         raise HTTPException(400, "Question is required")
-    if req.provider not in ("ollama",) and not req.api_key.strip():
-        raise HTTPException(400, f"API key required for provider '{req.provider}'")
+    effective_key = _resolve_api_key(req.provider, req.api_key)
+    if req.provider not in LOCAL_PROVIDERS and not effective_key:
+        raise HTTPException(400, "⚠️ No API key configured. Enter your free Gemini API key in the sidebar (get one at aistudio.google.com). The site owner can also set GEMINI_API_KEY as an environment variable.")
 
     # Build a synthetic report dict and reuse _execute_report
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -2239,7 +2287,7 @@ async def send_report_now(req: SendNowRequest):
         "question":        req.question,
         "db_name":         req.db_name,
         "provider":        req.provider,
-        "api_key_enc":     req.api_key,    # plain key
+        "api_key_enc":     effective_key,  # plain key
         "_plain_api_key":  True,           # tells _execute_report NOT to decrypt
         "recipient_email": req.to_emails.strip(),
         "schedule_cron":   "0 9 * * *",   # dummy cron (unused)
@@ -2294,14 +2342,15 @@ class DashboardRequest(BaseModel):
 async def generate_dashboard(req: DashboardRequest):
     if not req.goal.strip():
         raise HTTPException(400, "Goal cannot be empty")
-    if req.provider not in LOCAL_PROVIDERS and not req.api_key.strip():
-        raise HTTPException(400, "API key required")
+    effective_key = _resolve_api_key(req.provider, req.api_key)
+    if req.provider not in LOCAL_PROVIDERS and not effective_key:
+        raise HTTPException(400, "⚠️ No API key configured. Enter your free Gemini API key in the sidebar (get one at aistudio.google.com). The site owner can also set GEMINI_API_KEY as an environment variable.")
     try:
         schema_text = schema_to_text(req.db_name)
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
     try:
-        plan = generate_dashboard_plan(req.goal, schema_text, req.provider, req.api_key, req.model)
+        plan = generate_dashboard_plan(req.goal, schema_text, req.provider, effective_key, req.model)
     except Exception as e:
         raise HTTPException(500, f"Dashboard plan error: {e}")
 

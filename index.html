@@ -1082,9 +1082,20 @@
             <option value="ollama">Ollama (Local)</option>
           </select>
         </div>
+        <div id="server-key-notice" style="display:none;font-size:11px;padding:5px 8px;
+             border-radius:7px;background:var(--green-bg);color:var(--green);
+             border:1px solid rgba(22,163,74,.2);">
+          ✅ API key provided by server — no setup needed
+        </div>
         <div class="api-key-wrap" id="api-key-wrap">
-          <input class="api-key-input" id="api-key-input" type="password" placeholder="API Key..." />
+          <input class="api-key-input" id="api-key-input" type="password" placeholder="Your API Key (optional)..." />
           <button class="btn-sm" onclick="saveApiKey()">Save</button>
+        </div>
+        <div id="no-key-notice" style="display:none;font-size:11px;padding:5px 8px;
+             border-radius:7px;background:var(--amber-bg);color:var(--amber);
+             border:1px solid rgba(217,119,6,.2);line-height:1.5;">
+          ⚠️ Enter a free API key to use AI features.<br>
+          <a href="https://aistudio.google.com" target="_blank" style="color:var(--amber);text-decoration:underline">Get Gemini key free →</a>
         </div>
         <div id="provider-status-wrap" style="display:flex;flex-direction:column;gap:4px;"></div>
       </div>
@@ -2924,6 +2935,7 @@ const state = {
   provider: 'gemini',
   apiKey: '',
   apiKeys: {},
+  serverKeys: {},      // keys available on server side (from env vars)
   convoMemory: [],        // last 5 {question, sql} for context
   currentResult: null,    // last result for share
   schemaSummaries: {},    // table → summary text
@@ -3133,8 +3145,21 @@ function onProviderChange() {
 }
 
 function updateApiKeyVisibility() {
-  const local = ['ollama','huggingface'].includes(state.provider);
-  document.getElementById('api-key-wrap').style.display = local ? 'none' : 'flex';
+  const local        = ['ollama','huggingface'].includes(state.provider);
+  const hasUserKey   = !!state.apiKey;
+  const hasServerKey = !!(state.serverKeys && state.serverKeys[state.provider]);
+
+  // API key input: hide for local providers; also hide if server key is set and user hasn't overridden
+  const keyWrap = document.getElementById('api-key-wrap');
+  if (keyWrap) keyWrap.style.display = (local || (hasServerKey && !hasUserKey)) ? 'none' : 'flex';
+
+  // Server key notice
+  const serverNotice = document.getElementById('server-key-notice');
+  if (serverNotice) serverNotice.style.display = (!local && hasServerKey) ? '' : 'none';
+
+  // No-key warning: show only if no user key AND no server key AND not local
+  const noKeyNotice = document.getElementById('no-key-notice');
+  if (noKeyNotice) noKeyNotice.style.display = (!local && !hasUserKey && !hasServerKey) ? '' : 'none';
 }
 
 function saveApiKey() {
@@ -3144,6 +3169,7 @@ function saveApiKey() {
   state.apiKeys[state.provider] = val;
   localStorage.setItem('qm_api_keys', JSON.stringify(state.apiKeys));
   document.getElementById('api-key-input').value = '••••••••';
+  updateApiKeyVisibility();
   toast('✅ API key saved');
 }
 
@@ -3151,16 +3177,27 @@ async function loadProviderStatus() {
   try {
     const r = await fetch('/api/providers');
     const d = await r.json();
+
+    // Store server key availability so other functions can check it
+    state.serverKeys = d.server_keys || {};
+
     const wrap = document.getElementById('provider-status-wrap');
     wrap.innerHTML = '';
     Object.entries(d.providers || {}).forEach(([name, info]) => {
-      const ok = info.available;
-      const pill = document.createElement('div');
+      const ok       = info.available;
+      const serverOk = !!(d.server_keys && d.server_keys[name]);
+      const pill     = document.createElement('div');
       pill.className = 'provider-pill';
-      pill.innerHTML = `<div class="provider-dot ${ok?'ok':'err'}"></div><span>${name}</span><span style="margin-left:auto;font-size:10px">${ok?'Ready':'Not configured'}</span>`;
+      const statusLabel = ok
+        ? (serverOk ? '✅ Ready (server key)' : '✅ Ready')
+        : 'Not configured';
+      pill.innerHTML = `<div class="provider-dot ${ok?'ok':'err'}"></div>`
+        + `<span>${name}</span>`
+        + `<span style="margin-left:auto;font-size:10px">${statusLabel}</span>`;
       wrap.appendChild(pill);
     });
     updateProviderPill();
+    updateApiKeyVisibility();   // re-evaluate now we know server key status
   } catch(e) {}
 }
 
