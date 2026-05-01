@@ -221,14 +221,17 @@ def _open_mssql(conn_str: str):
     errors = []
 
     # ── Strategy 1: pymssql direct ───────────────────────────────────────────
+    # FIX: pymssql does NOT accept a 'trusted' keyword argument.
+    # When user/password are omitted, pymssql automatically uses Windows
+    # Authentication (trusted connection) — no extra flag is needed.
     if _pymssql:
         try:
             kwargs = {"server": server_full, "database": db, "timeout": 15}
             if user and pwd:
                 kwargs["user"]     = user
                 kwargs["password"] = pwd
-            else:
-                kwargs["trusted"] = True
+            # Do NOT pass trusted=True — pymssql uses Windows Auth automatically
+            # when no credentials are supplied.
             conn = _pymssql.connect(**kwargs)
             return conn, "pymssql (no ODBC needed)"
         except Exception as e:
@@ -241,6 +244,7 @@ def _open_mssql(conn_str: str):
                 url = (f"mssql+pymssql://{quote_plus(user)}:{quote_plus(pwd)}"
                        f"@{server_full}/{db}")
             else:
+                # Windows Authentication via SQLAlchemy+pymssql
                 url = f"mssql+pymssql://{server_full}/{db}"
             eng = _sa.create_engine(url, pool_pre_ping=True, pool_timeout=15,
                                      connect_args={"timeout": 15})
@@ -364,7 +368,7 @@ def _open_engine(db_type: str, conn_str: str) -> Tuple[Any, str]:
     raise ValueError(f"Unsupported db_type: {dt!r}. Supported: {list(SUPPORTED_DB_TYPES)}")
 
 
-# ── Connection test ───────────────────────────────────────────────────────────
+# ── Local machine detection helpers ──────────────────────────────────────────
 
 def _is_local_machine(host: str) -> bool:
     """Return True if the host looks like a local / private-network address."""
@@ -393,35 +397,47 @@ def _local_machine_warning(server_raw: str) -> str:
     )
 
 
+def _extract_mssql_server_raw(conn_str: str) -> str:
+    """Extract bare server/host token from any MSSQL connection string."""
+    cs = conn_str.strip()
+    if '=' in cs and ';' in cs:
+        for part in cs.split(';'):
+            k, _, v = part.partition('=')
+            if k.strip().lower() in ('server', 'host', 'data source'):
+                return v.strip().split('/')[0].split(',')[0]
+    return cs.split('/')[0].split('\\')[0].split(',')[0].strip()
+
+
+def _is_cloud_env() -> bool:
+    """Return True when running inside a known cloud deployment platform."""
+    return any(os.environ.get(v) for v in
+               ('RAILWAY_ENVIRONMENT', 'RENDER', 'FLY_APP_NAME', 'RAILWAY_SERVICE_NAME'))
+
+
+def check_is_local_mssql(conn_str: str) -> Optional[str]:
+    """
+    Public helper: call from the frontend on connection string change.
+    Returns a warning string when the address looks local, else None.
+    Useful for showing an inline warning BEFORE the user clicks Test Connection.
+    """
+    server_raw = _extract_mssql_server_raw(conn_str)
+    if _is_local_machine(server_raw):
+        return _local_machine_warning(server_raw)
+    return None
+
+
+# ── Connection test ───────────────────────────────────────────────────────────
+
 def test_connection(db_type: str, conn_str: str) -> Tuple[bool, str]:
     """Try to open a connection and run SELECT 1. Returns (success, message)."""
 
-    _cloud_warn = ""   # may be set below for MSSQL local-machine detection
+    _cloud_warn = ""
 
     # ── Pre-flight: detect local machine addresses for MSSQL on cloud ────────
     dt = db_type.lower().strip()
     if dt in ("mssql", "sqlserver", "sql_server"):
-        # Extract the server/host from the connection string
-        # Handles both "SERVER\INSTANCE/DB" style and "server=X;database=Y" style
-        server_raw = ""
-        cs = conn_str.strip()
-        if '=' in cs and ';' in cs:
-            # key=value connection string
-            for part in cs.split(';'):
-                k, _, v = part.partition('=')
-                if k.strip().lower() in ('server', 'host', 'data source'):
-                    server_raw = v.strip().split('/')[0].split(',')[0]
-                    break
-        else:
-            # Plain "SERVER\INSTANCE/DB" or "SERVER/DB"
-            server_raw = cs.split('/')[0].split('\\')[0].split(',')[0].strip()
-
-        # Only warn on actual cloud deployments (Railway / Render / Fly)
-        is_cloud = any(os.environ.get(v) for v in
-                       ('RAILWAY_ENVIRONMENT', 'RENDER', 'FLY_APP_NAME', 'RAILWAY_SERVICE_NAME'))
-        # On cloud, warn about local addresses but still attempt — user may be using ngrok/tunnel
-        _cloud_warn = ""
-        if is_cloud and server_raw and _is_local_machine(server_raw):
+        server_raw = _extract_mssql_server_raw(conn_str)
+        if _is_cloud_env() and server_raw and _is_local_machine(server_raw):
             _cloud_warn = _local_machine_warning(server_raw)
 
     try:
@@ -464,23 +480,8 @@ def test_connection(db_type: str, conn_str: str) -> Tuple[bool, str]:
                 "❌ Database not found in SQL Server.\n"
                 "Check the Database Name field — use the exact name from SSMS."
             )
-        if "network-related" in err.lower() or "10061" in err or "10060" in err or \
-                "Unable to connect" in err or "20009" in err or "Adaptive Server" in err:
-            # Check if this looks like a cloud→local connectivity problem
-            is_cloud = any(os.environ.get(v) for v in
-                           ('RAILWAY_ENVIRONMENT', 'RENDER', 'FLY_APP_NAME', 'RAILWAY_SERVICE_NAME'))
-            if is_cloud:
-                # Extract server name from conn_str for the message
-                cs = conn_str.strip()
-                server_raw = cs.split('/')[0].split('\\')[0].split(',')[0].strip()
-                if '=' in cs and ';' in cs:
-                    for part in cs.split(';'):
-                        k, _, v = part.partition('=')
-                        if k.strip().lower() in ('server', 'host', 'data source'):
-                            server_raw = v.strip().split('/')[0].split(',')[0]
-                            break
-                # Still try; surface warning alongside any connection error
-                pass
+        if ("network-related" in err.lower() or "10061" in err or "10060" in err or
+                "Unable to connect" in err or "20009" in err or "Adaptive Server" in err):
             cloud_tip = (
                 f"\n\n{_cloud_warn}\n\nIf using ngrok: run 'ngrok tcp 1433' and use "
                 f"the ngrok hostname (e.g. 0.tcp.ngrok.io:12345) as your server address."
